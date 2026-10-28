@@ -29,20 +29,38 @@ def token():
     return f.read_text().strip() if f.exists() else ""
 
 
+def cf_access_headers():
+    """Cloudflare Access service token for reaching Pulse through Access from another machine.
+    PULSE_CF_ACCESS_CLIENT_ID / PULSE_CF_ACCESS_CLIENT_SECRET, or ~/.config/pulse/cf-access.json
+    ({"client_id": "...", "client_secret": "..."})."""
+    cid = os.environ.get("PULSE_CF_ACCESS_CLIENT_ID", "")
+    secret = os.environ.get("PULSE_CF_ACCESS_CLIENT_SECRET", "")
+    f = Path.home() / ".config" / "pulse" / "cf-access.json"
+    if not (cid and secret) and f.exists():
+        data = json.loads(f.read_text())
+        cid, secret = data.get("client_id", ""), data.get("client_secret", "")
+    return {"CF-Access-Client-Id": cid, "CF-Access-Client-Secret": secret} if cid and secret else {}
+
+
 def api(method, path, body=None):
     req = urllib.request.Request(URL + "/api" + path, method=method,
                                  data=json.dumps(body).encode() if body is not None else None)
     req.add_header("Content-Type", "application/json")
     req.add_header("Authorization", "Bearer " + token())
     req.add_header("X-Pulse-Agent", AGENT)
+    for k, v in cf_access_headers().items():
+        req.add_header(k, v)
     try:
         with urllib.request.urlopen(req, timeout=15) as r:
-            return json.load(r)
+            try:
+                return json.load(r)
+            except ValueError:
+                raise ValueError("Pulse did not return JSON (probably the Cloudflare Access login page). Check the service token and the Access policy.")
     except urllib.error.HTTPError as e:
         try:
             msg = json.load(e).get("error")
         except Exception:
-            msg = e.reason
+            msg = str(e.reason) + " (not a Pulse response: if Pulse is behind Cloudflare Access, set the service token; see docs/agents.md)"
         raise ValueError(f"{msg} (HTTP {e.code})")
 
 

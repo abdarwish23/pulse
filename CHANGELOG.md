@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- MCP server and CLI can send a Cloudflare Access service token, so agents on other machines can use a Pulse that sits behind Access
+- Clearer errors when a proxy (not Pulse) answers a request
+- `/api/health` is public
+
 ## 1.0.0
 
 First public release.

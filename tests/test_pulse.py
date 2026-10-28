@@ -198,6 +198,37 @@ class PersonalTests(unittest.TestCase):
             self.assertIn(key, t)
 
 
+class CloudflareServiceTokenTests(unittest.TestCase):
+    """The MCP server and CLI send CF-Access-Client-Id/Secret when configured (env or ~/.config/pulse/cf-access.json)."""
+
+    def capture(self, cmd, env):
+        seen = []
+        original = server.Handler.identity
+        def spy(handler, write=False):
+            seen.append((handler.headers.get("CF-Access-Client-Id"), handler.headers.get("CF-Access-Client-Secret")))
+            return original(handler, write)
+        server.Handler.identity = spy
+        try:
+            subprocess.run(cmd, env=env, input='{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}\n',
+                           capture_output=True, text=True, timeout=20, check=True)
+        finally:
+            server.Handler.identity = original
+        return seen
+
+    def test_env_and_file(self):
+        home = tempfile.mkdtemp(prefix="pulse-cf-")
+        base = {**os.environ, "HOME": home, "PULSE_URL": BASE, "PULSE_TOKEN": TOKEN}
+        mcp = [sys.executable, str(ROOT / "pulse_mcp.py")]
+        cli = [sys.executable, str(ROOT / "pulse"), "ls"]
+        self.assertEqual(self.capture(mcp, base), [(None, None)], "nothing sent unless configured")
+        env = {**base, "PULSE_CF_ACCESS_CLIENT_ID": "id.access", "PULSE_CF_ACCESS_CLIENT_SECRET": "s3cret"}
+        self.assertEqual(self.capture(mcp, env), [("id.access", "s3cret")])
+        self.assertEqual(self.capture(cli, env), [("id.access", "s3cret")])
+        Path(home, ".config/pulse").mkdir(parents=True)
+        Path(home, ".config/pulse/cf-access.json").write_text(json.dumps({"client_id": "file.access", "client_secret": "f"}))
+        self.assertEqual(self.capture(cli, base), [("file.access", "f")])
+
+
 class McpTests(unittest.TestCase):
     def test_mcp_server(self):
         env = {**os.environ, "PULSE_URL": BASE, "PULSE_TOKEN": TOKEN}

@@ -37,8 +37,41 @@ args = ["/path/to/pulse/pulse_mcp.py", "--agent", "codex"]
 }
 ```
 
-If the agent runs on another machine, set `PULSE_URL` to your Pulse address and `PULSE_TOKEN` to a token created with `python3 server.py add-token <name>`.
-Behind Cloudflare Access you'll also need a [service token](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/) or a bypass rule for that agent.
+## Agents on another machine
+
+Agents on your laptop or desktop can use the same Pulse your server runs, so everything stays in one place.
+
+1. On the server, create a token for that machine: `python3 server.py add-token laptop` (restart Pulse to apply).
+2. On the other machine, copy `pulse_mcp.py` and `pulse` (or clone the repo). They need only Python 3.10+.
+3. Point them at your Pulse:
+
+   ```bash
+   mkdir -p ~/.config/pulse && chmod 700 ~/.config/pulse
+   printf '%s' '<token from step 1>' > ~/.config/pulse/token && chmod 600 ~/.config/pulse/token
+   export PULSE_URL=https://pulse.example.com      # e.g. in ~/.bashrc
+   ```
+
+4. Register the MCP server in your agents as shown above, adding `PULSE_URL` to its environment if the client doesn't inherit your shell.
+
+### Behind Cloudflare Access
+
+Access blocks requests without a browser sign-in, so non-browser agents need a **service token**:
+
+1. Cloudflare Zero Trust → **Access → Service credentials → Service tokens → Create service token**. Copy the Client ID and Client Secret (the secret is shown once).
+2. **Access → Applications →** your Pulse app → **Policies → Add a policy**: action **Service Auth**, include **Service Token** = the token from step 1. Keep your existing email policy for the browser.
+3. On the agent machine, save the credentials (or set `PULSE_CF_ACCESS_CLIENT_ID` and `PULSE_CF_ACCESS_CLIENT_SECRET`):
+
+   ```bash
+   cat > ~/.config/pulse/cf-access.json <<'JSON'
+   {"client_id": "xxxxxxxx.access", "client_secret": "yyyyyyyy"}
+   JSON
+   chmod 600 ~/.config/pulse/cf-access.json
+   ```
+
+4. Check: `PULSE_URL=https://pulse.example.com ./pulse today`
+
+The MCP server and CLI then send `CF-Access-Client-Id` / `CF-Access-Client-Secret` to Cloudflare, plus their own Pulse token to Pulse.
+If Cloudflare rejects them, the error says it was not a Pulse response, so you know to check the service token and policy.
 
 ## Tools
 

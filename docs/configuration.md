@@ -30,5 +30,6 @@ Environment variables:
 | `PULSE_URL` | CLI, MCP | Server URL (default `http://127.0.0.1:4100`) |
 | `PULSE_TOKEN` | CLI, MCP | Agent token (default: `~/.config/pulse/token`) |
 | `PULSE_AGENT` | CLI, MCP | Name shown in timelines (or `--agent` / `--by`) |
+| `PULSE_CF_ACCESS_CLIENT_ID` / `PULSE_CF_ACCESS_CLIENT_SECRET` | CLI, MCP | Cloudflare Access service token for remote agents (or `~/.config/pulse/cf-access.json`); see [agents](agents.md#behind-cloudflare-access) |
 
 A complete example is in [`config.example.json`](../config.example.json).
