@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pulse">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="stylesheet" href="/app.css">
+<title>Pulse</title>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <a class="logo" href="#/"><i></i>Pulse</a>
+    <nav id="nav" class="topnav"></nav>
+    <span class="sp"></span>
+    <a class="bell" href="#/inbox" title="Notifications"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><b id="bellN" style="display:none"></b></a>
+    <span id="me" class="mut sm"></span>
+  </div>
+  <nav class="tabs" id="tabs" style="display:none"></nav>
+</header>
+<main id="app"><div class="empty">Loading…</div></main>
+<nav id="bnav" class="bottomnav"></nav>
+
+<dialog id="newDlg"><form class="form" id="newForm" method="dialog">
+  <h3>New project</h3>
+  <div class="two"><input name="name" placeholder="Name" required><input name="slug" placeholder="id (e.g. website)" required pattern="[a-z0-9][a-z0-9\-]*"></div>
+  <select name="status"><option>active</option><option>idea</option><option>paused</option><option>blocked</option></select>
+  <textarea name="summary" placeholder="What is it? (optional)"></textarea>
+  <input name="next_step" placeholder="Next step (optional)">
+  <div class="row"><span class="sp"></span><button value="cancel" formnovalidate>Cancel</button><button class="pri" value="ok">Create</button></div>
+</form></dialog>
+
+<dialog id="cardDlg"><form class="form" id="cardForm" method="dialog">
+  <h3 id="cardTitle">Card</h3>
+  <label class="f">Title<input name="title" required maxlength="300"></label>
+  <label class="f">Details<textarea name="body" placeholder="Description, acceptance criteria… (optional)"></textarea></label>
+  <label class="f">Link (GitHub issue / PR / doc)<input name="link" placeholder="https://github.com/…"></label>
+  <label class="f">Column<select name="column"></select></label>
+  <div id="blockFields" class="form">
+    <label class="f">Blocked: who needs to act?<select name="block_owner"></select></label>
+    <label class="f">Reason for the block<textarea name="block_reason" placeholder="What exactly is needed to unblock?"></textarea></label>
+  </div>
+  <p class="meta" id="cardMeta"></p>
+  <div class="row" style="flex-wrap:wrap"><button type="button" class="danger" id="cardDel">Delete</button><button type="button" id="cardIssue">Create GitHub issue</button><span class="sp"></span>
+    <button value="cancel" formnovalidate>Cancel</button><button class="pri" value="ok">Save</button></div>
+</form></dialog>
+
+<dialog id="todoDlg"><form class="form" id="todoForm" method="dialog">
+  <h3>Todo</h3>
+  <label class="f">Title<input name="title" required maxlength="300" dir="auto"></label>
+  <label class="f">Notes<textarea name="notes" placeholder="Details (optional)" dir="auto"></textarea></label>
+  <div class="two"><label class="f">Due date<input name="due_date" type="date"></label><label class="f">Time<input name="due_time" type="time"></label></div>
+  <div class="two"><label class="f">Priority<select name="priority"><option value="1">High</option><option value="2">Normal</option><option value="3">Low</option></select></label>
+    <label class="f">Project<select name="project"></select></label></div>
+  <label class="f">Add a reminder<input name="remind_at" type="datetime-local"></label>
+  <div id="todoRems"></div>
+  <label class="ck"><input type="checkbox" name="private"> Private (hidden from agents)</label>
+  <p class="meta" id="todoMeta"></p>
+  <div class="row" style="flex-wrap:wrap"><button type="button" class="danger" id="todoDel">Delete</button><button type="button" id="todoPromote">Promote to card</button><span class="sp"></span>
+    <button value="cancel" formnovalidate>Cancel</button><button class="pri" value="ok">Save</button></div>
+</form></dialog>
+
+<script src="/core.js"></script>
+<script src="/board.js"></script>
+<script src="/hub.js"></script>
+</body>
+</html>

@@ -1,0 +1,240 @@
+#!/usr/bin/env python3
+"""pulse: command-line client for the Pulse project tracker.
+
+  pulse ls                                   list projects
+  pulse show <project>                       details, card counts, recent updates
+  pulse add <project> "Name" [--status S] [--summary ..] [--next ..]
+  pulse update <project> [--progress N] [--status S] [--next ..] [--note ..] [--link URL]
+  pulse log <project> "text" [--link URL]          (project timeline entry)
+  pulse done <project> "what was completed" [--link URL]
+  pulse block <project> "reason"                           (sets status=blocked)
+  pulse board <project>                                    kanban board (ideas | todo | doing | done | blocked)
+  pulse card add <project> "title" [--col todo] [--body ..] [--link URL]
+  pulse card move <card-id> <col> [--owner me|agent|financial|external|other --reason ".."] [--link URL]
+  pulse card edit <card-id> [--title ..] [--body ..] [--link ..]
+  pulse card issue <card-id>                               create a GitHub issue from the card
+  pulse sync <project>                                     sync the board with the project's GitHub issues
+  pulse update <project> --repo owner/name                 set the GitHub repo used for sync
+
+  `done` moves a card whose title matches to Done; otherwise it logs a "done" note.
+  Columns: ideas, todo, doing, done, blocked (blocked needs --owner and --reason).
+
+Personal hub:
+  pulse today                                              todos due, next reminders, waiting on you
+  pulse todo add "title" [--due today|tomorrow|YYYY-MM-DD[ HH:MM]] [--priority high] [--project p] [--remind "in 1h"]
+  pulse todo ls [--view open|today|overdue|upcoming|done]  /  pulse todo done <id|text>
+  pulse note add "body" [--title ..] [--tags a,b] [--project p]  /  pulse note search "words"
+  pulse remind "text" --at "tomorrow 09:00" [--repeat daily|weekdays|weekly|monthly]
+
+Author is taken from --by, $PULSE_AGENT, or "agent".
+Token: $PULSE_TOKEN or ~/.config/pulse/token.  Server: $PULSE_URL (default http://127.0.0.1:4100).
+"""
+import argparse, json, os, sys, time, urllib.error, urllib.request
+from pathlib import Path
+
+by = ""
+URL = os.environ.get("PULSE_URL", "http://127.0.0.1:4100").rstrip("/")
+
+
+def token():
+    t = os.environ.get("PULSE_TOKEN")
+    if t:
+        return t.strip()
+    f = Path.home() / ".config" / "pulse" / "token"
+    return f.read_text().strip() if f.exists() else ""
+
+
+def call(method, path, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(URL + "/api" + path, data=data, method=method)
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Authorization", "Bearer " + token())
+    if by:
+        req.add_header("X-Pulse-Agent", by)
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.load(e).get("error")
+        except Exception:
+            msg = e.reason
+        sys.exit(f"pulse: {msg} (HTTP {e.code})")
+    except urllib.error.URLError as e:
+        sys.exit(f"pulse: cannot reach {URL} ({e.reason})")
+
+
+def ago(ts):
+    s = int(time.time()) - ts
+    for unit, n in (("d", 86400), ("h", 3600), ("m", 60)):
+        if s >= n:
+            return f"{s // n}{unit} ago"
+    return "just now"
+
+
+def bar(p, w=10):
+    f = round(p * w / 100)
+    return "█" * f + "░" * (w - f)
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="pulse", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--by", default=os.environ.get("PULSE_AGENT", "agent"), help="author name shown in the timeline")
+    ap.add_argument("--json", action="store_true", help="raw JSON output")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("ls")
+    s = sub.add_parser("show"); s.add_argument("project")
+    s = sub.add_parser("add"); s.add_argument("project"); s.add_argument("name")
+    s.add_argument("--status", default="active"); s.add_argument("--summary", default=""); s.add_argument("--next", default="")
+    s.add_argument("--progress", type=int, default=0)
+    s = sub.add_parser("update"); s.add_argument("project")
+    for o in ("--status", "--next", "--note", "--link", "--summary", "--name", "--repo"):
+        s.add_argument(o)
+    s.add_argument("--progress", type=int)
+    s = sub.add_parser("log"); s.add_argument("project"); s.add_argument("text"); s.add_argument("--link", default="")
+    s = sub.add_parser("done"); s.add_argument("project"); s.add_argument("text"); s.add_argument("--link", default="")
+    s = sub.add_parser("block"); s.add_argument("project"); s.add_argument("text"); s.add_argument("--link", default="")
+    s = sub.add_parser("board"); s.add_argument("project")
+    s = sub.add_parser("sync"); s.add_argument("project")
+    sub.add_parser("today")
+    s = sub.add_parser("todo"); s.add_argument("action", choices=["add", "ls", "done"]); s.add_argument("arg", nargs="?")
+    for o in ("--due", "--priority", "--project", "--remind", "--view"):
+        s.add_argument(o)
+    s = sub.add_parser("note"); s.add_argument("action", choices=["add", "search"]); s.add_argument("arg", nargs="?", default="")
+    for o in ("--title", "--tags", "--project"):
+        s.add_argument(o)
+    s = sub.add_parser("remind"); s.add_argument("text"); s.add_argument("--at", required=True); s.add_argument("--repeat", default="")
+    s = sub.add_parser("card"); s.add_argument("action", choices=["add", "move", "edit", "issue"]); s.add_argument("target", help="project (add) or card id")
+    s.add_argument("arg", nargs="?", help="title (add) or column (move)")
+    for o in ("--col", "--body", "--link", "--owner", "--reason", "--title"):
+        s.add_argument(o)
+    a = ap.parse_args()
+    global by
+    by = a.by
+
+    out = None
+    if a.cmd == "ls":
+        out = call("GET", "/projects")
+        if not a.json:
+            for p in out:
+                last = p["last_update"]
+                print(f"{p['slug']:<16} {p['status']:<8} {bar(p['progress'])} {p['progress']:>3}%  "
+                      f"{ago(p['updated_at']):>8}  {p['next_step'][:60]}")
+            return
+    elif a.cmd == "show":
+        out = call("GET", f"/projects/{a.project}")
+        if not a.json:
+            print(f"{out['name']}  [{out['status']}]  {bar(out['progress'])} {out['progress']}%")
+            if out["summary"]: print(out["summary"])
+            if out["next_step"]: print(f"Next: {out['next_step']}")
+            print("Cards: " + "  ".join(f"{k} {v}" for k, v in out["counts"].items()))
+            print("\nRecent updates:")
+            for u in out["updates"][:10]:
+                print(f"  {ago(u['ts']):>8}  {u['author']:<8} {u['kind']:<9} {u['text']}" + (f"  <{u['link']}>" if u["link"] else ""))
+            return
+    elif a.cmd == "add":
+        out = call("POST", "/projects", {"slug": a.project, "name": a.name, "status": a.status,
+                                         "summary": a.summary, "next_step": a.next, "progress": a.progress})
+    elif a.cmd == "update":
+        b = {k: v for k, v in {"status": a.status, "next_step": a.next, "note": a.note, "link": a.link,
+                               "summary": a.summary, "name": a.name, "progress": a.progress, "github_repo": a.repo}.items() if v is not None}
+        if not b:
+            sys.exit("pulse: nothing to update")
+        out = call("PATCH", f"/projects/{a.project}", b)
+    elif a.cmd == "log":
+        out = call("POST", f"/projects/{a.project}/updates", {"text": a.text, "link": a.link, "kind": "note"})
+    elif a.cmd == "done":
+        p = call("GET", f"/projects/{a.project}")
+        c = next((c for c in p["cards"] if c["col"] != "done" and c["title"].lower() == a.text.lower()), None)
+        if c:
+            out = call("PATCH", f"/cards/{c['id']}", {"column": "done", **({"link": a.link} if a.link else {})})
+            out = {**p, "status": p["status"]}
+        else:
+            out = call("POST", f"/projects/{a.project}/updates", {"text": a.text, "link": a.link, "kind": "done"})
+    elif a.cmd == "block":
+        out = call("PATCH", f"/projects/{a.project}", {"status": "blocked", "note": a.text, "link": a.link})
+    elif a.cmd == "board":
+        p = call("GET", f"/projects/{a.project}")
+        if a.json:
+            print(json.dumps(p["cards"], indent=2)); return
+        names = {"ideas": "IDEAS", "todo": "TO DO", "doing": "IN PROGRESS", "done": "DONE", "blocked": "BLOCKED"}
+        print(f"{p['name']}  [{p['status']}]  {bar(p['progress'])} {p['progress']}%")
+        for col, label in names.items():
+            cs = [c for c in p["cards"] if c["col"] == col]
+            print(f"\n{label} ({len(cs)})")
+            for c in cs:
+                extra = f"  [{c['block_owner']}: {c['block_reason']}]" if col == "blocked" else ""
+                print(f"  #{c['id']:<4} {c['title']}{extra}" + (f"  <{c['link']}>" if c["link"] else ""))
+        return
+    elif a.cmd == "today":
+        t = call("GET", "/today")
+        if a.json:
+            print(json.dumps(t, indent=2)); return
+        print(f"{t['now']} ({t['timezone']}) · {t['open_todos']} open todos · {t['unread_notifications']} unread")
+        print("\nDue today / overdue:"); [print(f"  #{x['id']:<4} {x['title']}  ({x['due_date']}{' ' + x['due_time'] if x['due_time'] else ''})") for x in t["todos_due"]] or print("  —")
+        print("\nNext reminders:"); [print(f"  {r['at_local']}  {r['text']}" + (f"  ↻{r['repeat']}" if r["repeat"] else "")) for r in t["reminders_next_48h"]] or print("  —")
+        print("\nWaiting on you:"); [print(f"  {c['project_name']}: {c['title']} — {c['block_reason']}") for c in t["waiting_on_me"]] or print("  —")
+        return
+    elif a.cmd == "todo":
+        if a.action == "add":
+            b = {"title": a.arg}
+            for k, v in (("due", a.due), ("priority", a.priority), ("project", a.project), ("remind_at", a.remind)):
+                if v:
+                    b[k] = v
+            t = call("POST", "/todos", b); print(f"ok: todo #{t['id']} {t['title']}" + (f" (due {t['due_date']})" if t["due_date"] else "")); return
+        if a.action == "ls":
+            for t in call("GET", f"/todos?view={a.view or 'open'}"):
+                print(f"  {'x' if t['status'] == 'done' else ' '} #{t['id']:<4} {t['title']}" + (f"  [{t['due_date']}{' ' + t['due_time'] if t['due_time'] else ''}]" if t["due_date"] else "") + (" !" if t["priority"] == 1 else ""))
+            return
+        tid = a.arg if (a.arg or "").isdigit() else next((t["id"] for t in call("GET", "/todos?view=open") if (a.arg or "").lower() in t["title"].lower()), None)
+        if not tid:
+            sys.exit("pulse: no matching open todo")
+        t = call("PATCH", f"/todos/{tid}", {"status": "done"}); print(f"ok: done #{t['id']} {t['title']}"); return
+    elif a.cmd == "note":
+        if a.action == "add":
+            b = {"body": a.arg, "title": a.title or a.arg.split("\n")[0][:80]}
+            if a.tags: b["tags"] = a.tags
+            if a.project: b["project"] = a.project
+            n = call("POST", "/notes", b); print(f"ok: note #{n['id']} {n['title']}"); return
+        from urllib.parse import quote
+        for n in call("GET", f"/notes?q={quote(a.arg)}"):
+            print(f"  #{n['id']:<4} {n['title'] or 'Untitled'} — {n['snippet'][:80]}")
+        return
+    elif a.cmd == "remind":
+        r = call("POST", "/reminders", {"text": a.text, "at": a.at, "repeat": a.repeat}); print(f"ok: reminder #{r['id']} at {r['at_local']}" + (f" ↻{r['repeat']}" if r["repeat"] else "")); return
+    elif a.cmd == "sync":
+        r = call("POST", f"/projects/{a.project}/github/sync")
+        print("ok: " + ", ".join(f"{k} {v}" for k, v in r.items()))
+        return
+    elif a.cmd == "card" and a.action == "issue":
+        c = call("POST", f"/cards/{a.target}/github-issue")
+        print(f"ok: card #{c['id']} → {c['link']}")
+        return
+    elif a.cmd == "card":
+        if a.action == "add":
+            if not a.arg:
+                sys.exit("pulse: card add <project> \"title\"")
+            b = {"title": a.arg, "column": a.col or "todo"}
+        elif a.action == "move":
+            if not a.arg:
+                sys.exit("pulse: card move <card-id> <column>")
+            b = {"column": a.arg}
+        else:
+            b = {}
+        for k, v in (("body", a.body), ("link", a.link), ("block_owner", a.owner), ("block_reason", a.reason), ("title", a.title)):
+            if v is not None:
+                b[k] = v
+        c = call("POST", f"/projects/{a.target}/cards", b) if a.action == "add" else call("PATCH", f"/cards/{a.target}", b)
+        if a.json:
+            print(json.dumps(c, indent=2))
+        else:
+            print(f"ok: card #{c['id']} “{c['title']}” in {c['col']}")
+        return
+    if a.json:
+        print(json.dumps(out, indent=2))
+    else:
+        print(f"ok: {out['slug']} [{out['status']}] {out['progress']}%")
+
+
+if __name__ == "__main__":
+    main()

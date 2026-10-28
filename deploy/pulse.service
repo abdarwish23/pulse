@@ -1,0 +1,14 @@
+[Unit]
+Description=Pulse personal hub
+After=network-online.target
+
+[Service]
+# Assumes Pulse lives in ~/pulse; adjust the paths if not.
+ExecStart=/usr/bin/python3 %h/pulse/server.py
+WorkingDirectory=%h/pulse
+Restart=always
+RestartSec=3
+MemoryMax=200M
+
+[Install]
+WantedBy=default.target

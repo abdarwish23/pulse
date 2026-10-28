@@ -1,0 +1,6 @@
+[Unit]
+Description=Pulse database backup
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/pulse/backup.py
