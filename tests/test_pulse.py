@@ -87,6 +87,9 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(call("GET", "/api/projects", token="wrong")["HTTP"], 401)
         self.assertIsInstance(call("GET", "/api/projects"), list)
 
+    def test_health_is_public(self):
+        self.assertEqual(call("GET", "/api/health", token=None), {"ok": True})
+
     def test_static_shell_is_public(self):
         with urllib.request.urlopen(BASE + "/") as r:
             self.assertIn(b"<title>Pulse</title>", r.read())

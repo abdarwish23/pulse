@@ -18,7 +18,7 @@ Errors look like `{"error": "message"}` with a matching status code.
 | Method | Path | |
 |---|---|---|
 | GET | `/api/today` | Local time, todos due, reminders in the next 48 h, cards blocked on you, recent notes, unread count, active projects |
-| GET | `/api/health` | `{ok: true}` |
+| GET | `/api/health` | Public. `{ok: true}` |
 
 ## Notes
 

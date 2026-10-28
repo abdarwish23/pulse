@@ -1344,6 +1344,8 @@ class Handler(BaseHTTPRequestHandler):
             if not path.startswith("/api"):
                 need(method == "GET", "method not allowed", 405)
                 return self.serve_static(path)  # the app shell holds no data; every /api call is authenticated
+            if path == "/api/health" and method == "GET":
+                return self.send_json(200, {"ok": True})  # public: used by monitors and installers
             if path in ("/api/auth", "/api/login", "/api/logout"):
                 return self.auth_route(method, path)
             role, who = self.identity()
