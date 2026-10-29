@@ -124,4 +124,4 @@ For security reports, see [SECURITY.md](SECURITY.md).
 
 ## Private agent network (opt-in preview)
 
-Connect multiple agents per device, queue requests while devices are offline, and exchange approved files through private Copyparty storage on your VPS. Includes an Agents screen, outbound Linux connector, CLI and MCP tools. No automatic model or shell execution. See [setup, permissions and limits](docs/agent-network.md).
+Connect multiple agents per device, queue requests while devices are offline, and exchange approved files through private Copyparty storage on your VPS. Includes an Agents screen, outbound Linux file connector, CLI and MCP tools. Separately owner-enabled [task workers](docs/task-workers.md) can invoke installed agent runtimes and return their feedback. See [setup, permissions and limits](docs/agent-network.md).

@@ -39,7 +39,8 @@ class Client:
         self.opener = urllib.request.build_opener(NoRedirect())
 
     def headers(self):
-        headers = {'Authorization': 'Bearer '+self.token, 'Content-Type':'application/json'}
+        headers = {'Authorization': 'Bearer '+self.token, 'Content-Type':'application/json',
+                   'User-Agent': 'Pulse-Agent-Network/1.0'}
         if urlparse(self.url).scheme != 'https':
             return headers
         cid = os.environ.get('PULSE_CF_ACCESS_CLIENT_ID')

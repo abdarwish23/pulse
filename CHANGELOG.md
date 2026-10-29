@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add owner-enabled device workers for automatic agent tasks and feedback, with runtime adapters, cancellation, and recovery after reconciled retries or expired-request pruning.
 - Add opt-in private agent coordination: scoped identities, offline request queue, outbound folder connector, Copyparty artifact storage, owner Agents view, CLI/MCP tools and recovery tests.
 
 Release candidate work for 1.1.0 (MCP reports `1.1.0-dev` until tagged).
