@@ -3,6 +3,7 @@ Description=Pulse personal hub
 After=network-online.target
 
 [Service]
+UMask=0077
 # Assumes Pulse lives in ~/pulse; adjust the paths if not.
 ExecStart=/usr/bin/python3 %h/pulse/server.py
 WorkingDirectory=%h/pulse

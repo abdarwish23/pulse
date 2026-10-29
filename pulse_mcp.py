@@ -25,7 +25,7 @@ def token():
     t = os.environ.get("PULSE_TOKEN")
     if t:
         return t.strip()
-    f = Path.home() / ".config" / "pulse" / "token"
+    f = Path(os.environ.get("PULSE_TOKEN_FILE") or Path.home() / ".config" / "pulse" / "token").expanduser()
     return f.read_text().strip() if f.exists() else ""
 
 
@@ -362,7 +362,7 @@ def handle(msg):
     method, mid = msg.get("method"), msg.get("id")
     if method == "initialize":
         return {"protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "pulse", "version": "2.0.0"},
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "pulse", "version": "1.1.0-dev"},
                 "instructions": "Pulse is the user's personal platform: projects (kanban), notes, todos, reminders, "
                                 "notifications and long-term memory. Call get_today first for personal requests. "
                                 "Times are in the user's local timezone. Private items are never shown to agents. "

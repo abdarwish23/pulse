@@ -33,6 +33,18 @@ What is sent:
 
 Your own moves in the web app don't send alerts unless `notify_user_actions` is `true`. Everything sent also appears in the in-app **Inbox**.
 
+Delivery is stored in SQLite before sending, so pending messages survive a
+restart. Failures retry after 30, 60, 120 and 240 seconds (five attempts total).
+The Inbox distinguishes pending, retrying, delivered, cancelled and failed
+delivery. Missing credentials count as a failure; transport errors never include
+the bot token. Legacy failed notifications are not replayed during an upgrade.
+
+Delivery is at-least-once while retrying: Telegram offers no idempotency key, so
+a crash after Telegram accepts a message but before Pulse saves success can
+produce a duplicate. Cancelling/deleting a reminder, snoozing it or completing
+its todo cancels pending/retrying delivery; an already in-flight send cannot be
+recalled. After five failures, check the Inbox and reschedule if needed.
+
 ## GitHub issue sync
 
 Requires the [GitHub CLI](https://cli.github.com/) (`gh`), logged in as the user Pulse runs as (`gh auth login`). Pulse uses that login, so no extra token is needed.

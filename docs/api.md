@@ -49,6 +49,18 @@ Errors look like `{"error": "message"}` with a matching status code.
 | POST | `/api/notifications/read` | `{ids: [...]}` or `{}` for all |
 | POST | `/api/notify` | `title, body, link, project` (20 per hour) |
 
+Notification links must be empty, an internal `#/` path, or an HTTP(S) URL.
+Private reminders are hidden inside todo/Today responses as well as their own
+endpoints. Their notifications and linked activity are also hidden from agents;
+agents cannot mark private notifications read. Linked reminders inherit a private
+todo's privacy. Making a source public again does not republish private history.
+
+Notifications expose `delivery_status` (`disabled`, `pending`, `delivering`,
+`retrying`, `delivered`, `failed`, `cancelled`), `attempts` and `next_attempt_at`.
+`delivered` remains the compatibility boolean. A reminder's `sent` status means
+its scheduled occurrence fired; inspect its notification for Telegram delivery.
+Delivery payloads are internal and are never returned by the API.
+
 ## Memory
 
 | Method | Path | Body |

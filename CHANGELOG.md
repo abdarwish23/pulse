@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+Release candidate work for 1.1.0 (MCP reports `1.1.0-dev` until tagged).
+
+- Separate Cloudflare human and service identities; machines still require a Pulse bearer token.
+- Enforce privacy in nested reminders, notifications, activity, read markers and privacy transitions. Retain ambiguous legacy derived history for the owner only.
+- Reject unsafe notification URL schemes in the API and Inbox, including previously stored links.
+- Trust forwarded login IPs only from configured proxies; serialize login throttling decisions.
+- Persist Telegram delivery attempts across restart, retry with backoff, show delivery status and redact transport errors.
+- Validate read-only SQLite backup sources, write unique snapshots atomically, test restoration and restrict personal file permissions.
+- Preserve existing client tokens during initialization; add `PULSE_TOKEN_FILE` for multiple instances.
+- Add local security, migration, restore and delivery tests. GitHub Actions is manual-only to avoid automatic hosted CI usage.
+- Correct Memory screen claims and document release checks, proxy setup and upgrade/rollback behavior.
+
 - MCP server and CLI can send a Cloudflare Access service token, so agents on other machines can use a Pulse that sits behind Access
 - Clearer errors when a proxy (not Pulse) answers a request
 - `/api/health` is public

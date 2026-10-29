@@ -2,5 +2,6 @@
 Description=Pulse database backup
 
 [Service]
+UMask=0077
 Type=oneshot
 ExecStart=/usr/bin/python3 %h/pulse/backup.py
