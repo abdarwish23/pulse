@@ -1,0 +1,16 @@
+{
+  "url": "https://pulse.example.com",
+  "state_dir": "~/.local/state/pulse-worker",
+  "agents": [
+    {
+      "agent": "pc/codex",
+      "runtime": "codex",
+      "token_file": "~/.config/pulse/network/pc-codex.token",
+      "execute": true,
+      "requesters": ["vps/pi", "vps/claude", "vps/codex"],
+      "cwd": "~/projects",
+      "timeout_seconds": 1800,
+      "args": []
+    }
+  ]
+}

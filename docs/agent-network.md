@@ -1,6 +1,6 @@
 # Private agent network
 
-Pulse coordinates enrolled agents; Copyparty stores transferred artifacts on the VPS disk. Each computer runs an outbound connector for explicitly configured read-only folders. Agent messages are claimed and answered through MCP or CLI. This feature is opt-in and does not start models, shells, or paid API calls.
+Pulse coordinates enrolled agents; Copyparty stores transferred artifacts on the VPS disk. Each computer runs an outbound connector for explicitly configured read-only folders. Agent messages are claimed and answered through MCP or CLI. The file connector never starts models. An optional, separately owner-enabled [task worker](task-workers.md) can run incoming tasks through installed agent runtimes and return feedback.
 
 ## What the first version does
 
@@ -10,7 +10,7 @@ Pulse coordinates enrolled agents; Copyparty stores transferred artifacts on the
 - Private file transfer through Copyparty over WebDAV, SHA-256 verification, configurable retention, withdrawal, audit records and durable cleanup.
 - An Agents screen (`#/agents`) for presence, permissions, requests and downloads; network commands in `pulse`; dedicated MCP tools.
 
-It does **not** provide remote shell execution, autonomous LLM launching, arbitrary filesystem access, repository write coordination, a bidirectional sync drive, native mobile background workers, or automatic Telegram attachments. An existing Pi Telegram session can use the network MCP tools after enrollment and tool reload, but that installation must be verified separately. Mobile apps are clients unless their actual execution environment supports the connector/tools. The place where someone chats is not necessarily the execution device.
+The network/file connector alone does **not** provide remote shell execution, autonomous LLM launching, arbitrary filesystem access, repository write coordination, a bidirectional sync drive, native mobile background workers, or automatic Telegram attachments. Enabling a task worker separately authorizes configured senders to invoke that runtime with its local permissions. An existing Pi Telegram session can use the network MCP tools after enrollment and tool reload, but that installation must be verified separately. Mobile apps are clients unless their actual execution environment supports the connector/tools. The place where someone chats is not necessarily the execution device.
 
 ## Architecture and trust
 
