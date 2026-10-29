@@ -3,6 +3,8 @@
 Date: 2026-10-29. Implementation commit: `a3e7f8990892824240da8f38f5811db7ce6100e6`.
 Base: `805c412` (`codex/pulse-release-hardening`, draft PR #4). Feature branch: `codex/agent-network`.
 
+**Deployment update:** the owner approved deployment on 2026-10-29. The application is now live at implementation commit `a3e7f899`; the artifact backup helper is installed from `b09d8fa`. The initial preparation record below is retained as history; see the executed rollout at the end for current status.
+
 ## Delivered and verified locally
 
 - Scoped device/agent identities and sessions; explicit source/requester grants; offline queue, deadline, idempotency, leases, reconciliation and revocation.
@@ -75,3 +77,34 @@ If verification fails, stop Pulse and storage. Preserve a post-upgrade snapshot 
 ## Remaining work
 
 Implementation is reviewable; production deployment and real-device enrollment remain pending. There is no unrestricted shared OS mount, automatic model dispatch, native mobile worker, or streaming upload above 32 MiB. Share only approved artifacts; leave editable code workspaces local. Persistent shared artifacts remain bounded to 256 MiB total in Pulse, with a 1 GiB storage-side backstop. See [the operational guide](agent-network.md).
+
+## Executed rollout — 2026-10-29
+
+Owner authorization: “Yes let’s deploy”, covering the prepared candidate and pending hardening from PR #4. Application deployment completed at 18:58:54 UTC. Neither draft PR was merged and the repository remains private.
+
+- Pulse runs from `/home/ahmed/pulse-releases/a3e7f899`, using the original config and database through explicit environment variables. The original checkout remains unchanged. The new user-service drop-in sets the reviewed 384 MiB memory ceiling.
+- Copyparty 1.20.26 runs on loopback port 4102 from `/home/ahmed/.local/share/pulse-storage`, with anonymous access denied and a 256 MiB service ceiling. Retention is until withdrawal.
+- The enabled `pulse-connector.service` serves four VPS identities (`vps/pi`, `vps/claude`, `vps/codex`, `vps/opencode`). Each exposes only its new `/home/ahmed/pulse-shared/<agent>` folder under alias `shared`, with reciprocal grants to the other three identities. No existing project directory was shared. Connector readiness describes file operations, not an available model session.
+- Pi, Claude Code and Codex MCP configurations point to the deployed adapter with separate private token files. Fresh subprocesses using each actual configuration passed initialize, tool discovery, network access and existing memory recall. Existing interactive sessions were not interrupted and still need to reload their MCP configuration. OpenCode identity/file serving is prepared; its runtime MCP configuration was not found and was not fabricated.
+- The `pulse` CLI now invokes the deployed release and supplies the original config/database paths for local administration. Set `PULSE_NETWORK_TOKEN_FILE` to select the intended identity for network commands.
+- Original config values and ordinary Pulse credentials were verified unchanged outside the new `agent_network` object. Config/MCP/CLI/service backups and evidence are private under `/home/ahmed/pulse-deployments/20261029-185828`.
+
+### Verification on the deployed instance
+
+- Upgrade of a live-data snapshot to schema 7 passed before deployment. The final stopped-service snapshot is `/home/ahmed/pulse-deployments/20261029-185828/final-before/pulse-20261029-185854-8ofa064e.db`. Post-upgrade database integrity and foreign-key checks passed.
+- Real HTTP requests exercised queue → running connector → real Copyparty → checksum-verified download. An additional authorized agent could retrieve the artifact without reading the original request. Unshared-folder access was denied. Withdrawal removed API access and the stored object. All synthetic source files were removed; there were zero registered artifacts and cleanup jobs at final verification.
+- Ordinary Pulse authentication and the external memory bridge work. Ordinary Pulse credentials and anonymous requests are denied network access; network credentials are denied normal Pulse API access. A new synthetic private todo created by local administration could not be read or changed through the agent API; that fixture was then removed.
+- The live instance intentionally has no password login, so a synthetic password-session check was inapplicable. Cloudflare owner login has **not** been claimed verified. The public URL returned HTTP 403 from the VPS, which has no configured Cloudflare Access service credential. Actual PC transport/public artifact transfer remains a separate check using the PC's existing credentials; no Access policy was weakened.
+- Pulse, storage and connector are active, enabled, and had zero restarts at final verification. The Agents JavaScript asset is served. No traceback/internal-error markers appeared in their deployment logs. Combined observed memory use was approximately 86 MiB; this is a point-in-time observation, not a load-test result.
+
+### Backups now installed
+
+The existing 03:15 local-time `pulse-backup.timer` remains enabled. Its service uses the validated database helper and then runs `scripts/backup_network.py` from immutable release `/home/ahmed/pulse-releases/b09d8fa`. It retains the existing 14 database snapshots plus seven consistent network snapshots in `/home/ahmed/pulse/backups/network` containing their own database, referenced artifact bytes, config/storage credentials and network token files. All are private on the VPS; an independent off-host copy is not configured by this deployment.
+
+A real synthetic artifact was uploaded through the running connector, snapshotted, and withdrawn. The independent database snapshot passed integrity checks and its saved artifact bytes still matched the expected hash after live deletion. Restrictive permissions passed. A simulated copy failure published no partial snapshot and retained the previous successful backup. An immediate run of the actual systemd backup service also passed.
+
+### Rollback additions and remaining checks
+
+In addition to the original rollback procedure, stop/disable `pulse-connector` before reverting. Restore the saved Pi/Claude/Codex MCP configurations and original CLI symlink target if rolling back the adapter. Remove the new `pulse-backup.service.d/agent-network.conf` drop-in to restore the original backup command. Preserve all network token files, shared folders and artifact snapshots for reconciliation; do not delete user files. Stop new transfers and preserve a post-deployment DB/artifact snapshot before restoring an older database.
+
+Remaining: owner browser login confirmation, PC enrollment/public transfer verification, reload of existing interactive MCP sessions, OpenCode runtime setup, mobile capability assessment, and review/merge of PRs #4/#5. These do not change the observed VPS deployment status. No autonomous model dispatcher, blockchain, VPN or native mobile worker was deployed.
