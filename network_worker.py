@@ -180,9 +180,22 @@ class Worker:
             reply = self.client.call('POST', '/requests/' + p['job']['id'] + '/complete', body)
         except ClientError:
             # Covers lost success/failure responses, expired leases and cancellation.
-            reply = self.client.call('GET', '/requests/' + p['job']['id'])
-            if reply['status'] not in TERMINAL:
-                raise
+            try:
+                reply = self.client.call('GET', '/requests/' + p['job']['id'])
+            except ClientError as e:
+                if e.status != 404:
+                    raise
+                # Old expired requests are pruned. Confirm this network and
+                # identity are available before discarding undeliverable state.
+                self.heartbeat()
+                reply = {'status': 'unavailable'}
+            else:
+                if reply['status'] == 'queued' or reply['attempts'] > p['job']['attempts']:
+                    # Only an explicitly reconciled retry can requeue a message.
+                    # The old result must neither block nor overwrite the new attempt.
+                    reply = {'status': 'superseded'}
+                elif reply['status'] not in TERMINAL:
+                    raise
         save(self.root / 'last-result.json', {'request_id': p['job']['id'],
              'status': reply['status'], **p['completion']})
         self.log(reply['status'], p['job']['id'])

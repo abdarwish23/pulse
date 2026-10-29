@@ -78,6 +78,24 @@ until reconnect or expiry. Stop/rollback with `systemctl --user disable --now
 pulse-worker.service`; no server rollback is needed. Owner-local instructions now
 describe automatic delegation on VPS; previous files were privately backed up.
 
-Deployment and requested core behavior are verified. PR #6 remains open for source
-review/merge alongside #5; Pulse card #165 retains that review status. No hosted CI,
-public release or repository visibility change was performed.
+Deployment and requested core behavior are verified. At initial delivery, PR #6
+remained open for source review/merge alongside #5; Pulse card #165 retained that
+review status. No hosted CI, public release or repository visibility change was
+performed.
+
+## Source review — 2026-10-30 JST
+
+PC source review reproduced recovery failures in the original implementation:
+saved feedback blocked an explicitly reconciled retry, including a retry already
+claimed by another worker. An expired request pruned by controller retention also
+left its worker stuck trying to deliver missing work. Recovery now retires stale
+attempt feedback without replacing a new result, and confirms the network identity
+is available before clearing a missing request. Network outages or disabling the
+network retain undelivered feedback.
+
+Four additional real-HTTP regression tests cover those cases and preservation
+while the network is disabled. `python3 scripts/check.py python3` on Python 3.12.3
+passed **67 tests**, with **2 optional real-Copyparty tests skipped**, all four
+frontend syntax checks and the frontend regression checks. There are now 15 worker
+tests. `git diff --check` passed; no hosted workflow was dispatched. The merge
+target remains the existing `codex/agent-network` base; parent PRs #4/#5 are separate.

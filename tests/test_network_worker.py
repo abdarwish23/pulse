@@ -11,6 +11,7 @@ import test_network as network_tests
 from test_network import BASE
 from network_client import ClientError
 from network_worker import Worker, bounded, feedback, save
+from agent_network import stamp
 
 
 class WorkerTests(unittest.TestCase):
@@ -150,6 +151,77 @@ class WorkerTests(unittest.TestCase):
         resumed.tick(threading.Event())
         self.assertEqual(self.result(job)['error'], 'Worker interrupted during execution')
         self.assertEqual(self.result(job)['attempts'], 1)
+
+    def test_reconciled_retry_supersedes_saved_feedback(self):
+        worker = self.worker("from pathlib import Path\nPath('runs').write_text('new attempt')\nprint('new feedback')")
+        job = self.request('message')
+        worker.heartbeat()
+        claimed = worker.client.call('POST', '/claim', {'session_id': worker.session})
+        save(worker.pending_file, {'session_id': worker.session, 'job': claimed,
+                                  'completion': worker.result('old feedback')})
+        self.sql('UPDATE network_requests SET lease_until=? WHERE id=?', (stamp() - 1, job['id']))
+        self.assertEqual(self.result(job)['status'], 'interrupted')
+        self.clients['pi'].call('POST', '/requests/' + job['id'] + '/retry', {'reconciled': True})
+        worker.lock.close()
+        resumed = Worker(BASE, worker.profile, self.root / 'state-pi')
+        self.addCleanup(resumed.lock.close)
+        self.assertTrue(resumed.tick(threading.Event()))
+        result = self.result(job)
+        self.assertEqual(result['status'], 'completed')
+        self.assertEqual(result['result']['message'], 'new feedback')
+        self.assertEqual(result['attempts'], 2)
+        self.assertEqual((self.root / 'runs').read_text(), 'new attempt')
+
+    def test_old_feedback_does_not_block_a_retry_claimed_elsewhere(self):
+        worker = self.worker("raise Exception('old worker must not execute the retry')")
+        job = self.request('message')
+        worker.heartbeat()
+        claimed = worker.client.call('POST', '/claim', {'session_id': worker.session})
+        worker.pending = {'session_id': worker.session, 'job': claimed,
+                          'completion': worker.result('old feedback')}
+        save(worker.pending_file, worker.pending)
+        self.sql('UPDATE network_requests SET lease_until=? WHERE id=?', (stamp() - 1, job['id']))
+        self.clients['pi'].call('POST', '/requests/' + job['id'] + '/retry', {'reconciled': True})
+        other_session = 'other-worker'
+        worker.client.call('POST', '/heartbeat', {'session_id': other_session, 'capabilities': ['message']})
+        retry = worker.client.call('POST', '/claim', {'session_id': other_session})
+        self.assertFalse(worker.tick(threading.Event()))
+        self.assertFalse(worker.pending_file.exists())
+        self.assertEqual(self.result(job)['status'], 'leased')
+        worker.client.call('POST', '/requests/' + job['id'] + '/complete',
+                           {'session_id': other_session, 'lease': retry['lease'],
+                            'result': {'message': 'other worker feedback'}})
+        self.assertEqual(self.result(job)['result']['message'], 'other worker feedback')
+
+    def test_pruned_request_does_not_block_new_work(self):
+        worker = self.worker("print('new task feedback')")
+        old_job = self.request('message')
+        worker.heartbeat()
+        claimed = worker.client.call('POST', '/claim', {'session_id': worker.session})
+        worker.pending = {'session_id': worker.session, 'job': claimed,
+                          'completion': worker.result('old feedback')}
+        save(worker.pending_file, worker.pending)
+        self.sql('UPDATE network_requests SET expires_at=? WHERE id=?',
+                 (stamp() - 31 * 86400, old_job['id']))
+        job = self.request('message')
+        self.assertTrue(worker.tick(threading.Event()))
+        self.assertEqual(self.result(job)['result']['message'], 'new task feedback')
+        self.assertFalse(worker.pending_file.exists())
+
+    def test_disabled_network_retains_undelivered_feedback(self):
+        worker = self.worker("raise Exception('must not execute')")
+        job = self.request('message')
+        worker.heartbeat()
+        claimed = worker.client.call('POST', '/claim', {'session_id': worker.session})
+        worker.pending = {'session_id': worker.session, 'job': claimed,
+                          'completion': worker.result('saved feedback')}
+        save(worker.pending_file, worker.pending)
+        with patch.dict(network_tests.server.CONFIG['agent_network'], {'enabled': False}):
+            with self.assertRaises(ClientError):
+                worker.deliver()
+            self.assertTrue(worker.pending_file.exists())
+        worker.deliver()
+        self.assertEqual(self.result(job)['result']['message'], 'saved feedback')
 
     def test_duplicate_worker_is_rejected(self):
         worker = self.worker("print('done')")

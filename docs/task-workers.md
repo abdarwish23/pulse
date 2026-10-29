@@ -54,6 +54,11 @@ clear explanation; an enrolled identity alone does not establish model readiness
 * Results survive a lost controller response and worker restart. A crash during
   execution reports failure or the controller's `interrupted` state; it never
   automatically runs the task twice. Reconcile effects before a manual retry.
+  An explicitly reconciled retry supersedes any saved feedback from the old
+  attempt, so reconnecting workers can continue without replacing the new result.
+  If retention has already pruned a request, the worker confirms its network
+  identity is available, records the old delivery as locally `unavailable`, and
+  continues with new work. Disabling the network retains pending feedback.
 * Task timeout is configurable. Capture is bounded to 4 MiB; returned feedback fits
   the controller's 32,000-character JSON limit and explicitly labels truncation.
 * Journald contains identity, request ID and lifecycle state, not prompts/results.
