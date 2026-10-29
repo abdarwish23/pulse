@@ -96,6 +96,16 @@ def bar(p, w=10):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "network":
+        from network_cli import main as network_main
+        from network_client import ClientError
+        from agent_network import NetworkError
+        try:
+            return network_main(sys.argv[2:])
+        except (ClientError, NetworkError) as e:
+            sys.exit(e.message if isinstance(e, NetworkError) else str(e))
+        except OSError:
+            sys.exit("Network command failed; check local file paths and permissions")
     ap = argparse.ArgumentParser(prog="pulse", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--by", default=os.environ.get("PULSE_AGENT", "agent"), help="author name shown in the timeline")
     ap.add_argument("--json", action="store_true", help="raw JSON output")

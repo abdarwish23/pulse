@@ -2,7 +2,7 @@
 """Pulse: a simple, self-hosted personal hub for you and your AI agents.
 
 Projects (kanban), notes, todos, reminders, notifications and long-term memory
-in one Python file with zero dependencies (standard library + SQLite).
+with zero Python runtime dependencies (standard library + SQLite).
 
   python3 server.py init           create config.json, an agent token and a password
   python3 server.py                run the server (default http://127.0.0.1:4100)
@@ -23,6 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse, parse_qs
+import agent_network
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("PULSE_DB") or ROOT / "data" / "pulse.db")
@@ -223,6 +224,8 @@ def init_db():
             PRAGMA user_version=6;
             COMMIT;
             """)
+
+        agent_network.migrate(con)
 
 
 # ---------- Cloudflare Access JWT verification (RS256, stdlib only) ----------
@@ -1543,6 +1546,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {"ok": True})  # public: used by monitors and installers
             if path in ("/api/auth", "/api/login", "/api/logout"):
                 return self.auth_route(method, path)
+            if path == "/api/network" or path.startswith("/api/network/"):
+                return agent_network.handle(self, method, path, sys.modules[__name__])
             role, who = self.identity()
             con = db()
             try:
@@ -1795,6 +1800,7 @@ def main():
     threading.Thread(target=gh_poller, daemon=True).start()
     threading.Thread(target=reminder_loop, daemon=True).start()
     threading.Thread(target=delivery_loop, daemon=True).start()
+    threading.Thread(target=agent_network.maintenance_loop, args=(sys.modules[__name__],), daemon=True).start()
     srv = ThreadingHTTPServer((CONFIG["host"], CONFIG["port"]), Handler)
     srv.daemon_threads = True
     print(f"Pulse listening on http://{CONFIG['host']}:{CONFIG['port']} (timezone {TZ.key})", flush=True)

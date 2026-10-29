@@ -66,6 +66,7 @@ const order = {blocked: 0, active: 1, paused: 2, idea: 3, done: 4};
 
 // ---------- shared UI helpers ----------
 const ICONS = {
+  network: '<path d="M9 3h6v6H9zM2 15h6v6H2zM16 15h6v6h-6zM12 9v3M5 15v-3h14v3"/>',
   today: '<path d="M4 6h16M4 6v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V6M4 6V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v1M8 2v4M16 2v4M8 12h3v3H8z"/>',
   projects: '<path d="M3 4h5v16H3zM10 4h5v10h-5zM17 4h4v7h-4z"/>',
   notes: '<path d="M6 3h9l4 4v14H6zM14 3v5h5M9 12h7M9 16h7"/>',
@@ -79,7 +80,7 @@ const ICONS = {
 };
 const icon = (n, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
 const SECTIONS = [["today", "Today", "#/"], ["projects", "Projects", "#/projects"], ["notes", "Notes", "#/notes"],
-  ["todos", "Todos", "#/todos"], ["reminders", "Reminders", "#/reminders"], ["memory", "Memory", "#/memory"]];
+  ["todos", "Todos", "#/todos"], ["reminders", "Reminders", "#/reminders"], ["memory", "Memory", "#/memory"], ["network", "Agents", "#/agents"]];
 const PRIO = {1: "high", 2: "normal", 3: "low"};
 const lockMark = x => x.private ? `<span class="lock" title="Private: hidden from agents">${icon("lock", "ic xs")}</span>` : "";
 
@@ -151,6 +152,7 @@ async function route() {
     else if ((m = h.match(/^#\/todos(?:\/(\d+))?/))) { renderNav("todos"); await renderTodos(m[1]); }
     else if (h.startsWith("#/reminders")) { renderNav("reminders"); await renderReminders(); }
     else if (h.startsWith("#/memory")) { renderNav("memory"); await renderMemory(); }
+    else if (h.startsWith("#/agents")) { renderNav("network"); await renderNetwork(); }
     else if (h.startsWith("#/inbox")) { renderNav(""); await renderInbox(); }
     else { renderNav("today"); await renderToday(); }
   } catch (e) { if (!loginShown) { $("#app").innerHTML = ""; fail(e); } return; }

@@ -48,7 +48,7 @@ class MigrationTests(IsolatedDatabase):
             con.commit()
         server.init_db()
         server.init_db()  # restart must not replay migrations
-        self.assertEqual(self.read("PRAGMA user_version")[0][0], 6)
+        self.assertEqual(self.read("PRAGMA user_version")[0][0], 7)
         self.assertEqual(self.read("SELECT private FROM reminders")[0][0], 1)
         self.assertEqual(self.read("SELECT private FROM notifications")[0][0], 1)
         self.assertEqual(self.read("SELECT COUNT(*) FROM notifications")[0][0], 1)
