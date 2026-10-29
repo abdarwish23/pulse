@@ -42,6 +42,17 @@ Agents may discover enrolled identity metadata. Requests are visible only to the
 - Uploads use stable request-and-checksum storage keys. A durable cleanup marker is written before storage upload, with a one-hour grace period. Successful registration removes it. The collector never deletes a referenced object. Lost upload responses can be retried with the original lease; changed results are rejected.
 - Bytes live outside SQLite. Back up both Pulse's database/config and the Copyparty files/config. For a consistent snapshot, stop uploads and both services while making the coordinated backup. A VPS disk is not an independent backup. Deletion/expiry removes active access, not historical backup copies or forensic disk remnants.
 
+For the local Copyparty layout created by the preparation helper, `scripts/backup_network.py` provides an online alternative. It holds Pulse's transfer/deletion lock, snapshots SQLite, copies only the immutable objects referenced by that snapshot, and verifies their sizes and hashes. It saves the Pulse/storage configuration and optionally the network token files privately. Failed snapshots are not published; seven complete snapshots are retained by default. Uploads can briefly return a retryable storage-busy response during a long backup. Run with the live `PULSE_CONFIG` and `PULSE_DB` environment variables:
+
+```bash
+python3 scripts/backup_network.py \
+  --storage-root ~/.local/share/pulse-storage \
+  --destination ~/pulse/backups/network \
+  --token-directory ~/.config/pulse/network
+```
+
+To restore, stop Pulse, its connector and storage first; preserve the current state and reconcile writes after the selected snapshot. Restore the database named by `manifest.json`, the private configuration/credentials, and `objects/` into Copyparty's `files/` directory. Restore the corresponding token files if needed. Quarantine stale SQLite WAL/SHM files, verify database integrity and artifact hashes, then restart and smoke-test authentication/transfers. These snapshots remain on the same VPS unless copied to a separate backup destination.
+
 ## Prepare storage (does not deploy)
 
 The preparation helper downloads **Copyparty 1.20.26** from its official release and verifies a pinned SHA-256. It creates a new private directory, credentials, configuration and a user-service template. It never changes existing Pulse config or starts a service.
