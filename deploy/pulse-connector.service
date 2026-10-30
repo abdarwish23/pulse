@@ -1,0 +1,15 @@
+[Unit]
+Description=Pulse outbound agent connector
+After=network-online.target
+
+[Service]
+UMask=0077
+# Adjust checkout path if needed. Config references private per-agent token files.
+ExecStart=/usr/bin/python3 %h/pulse/network_connector.py --config %h/.config/pulse/network-connector.json
+Restart=on-failure
+RestartSec=10
+MemoryMax=256M
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=default.target

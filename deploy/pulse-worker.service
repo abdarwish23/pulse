@@ -1,0 +1,17 @@
+[Unit]
+Description=Pulse agent task worker
+After=network-online.target
+
+[Service]
+Type=simple
+UMask=0077
+WorkingDirectory=%h
+Environment=PATH=%h/.local/bin:%h/.opencode/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/python3 %h/pulse-network-client/network_worker.py --config %h/.config/pulse/network-worker.json
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=65
+
+[Install]
+WantedBy=default.target

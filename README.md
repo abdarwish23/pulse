@@ -95,6 +95,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 | [Agents, MCP and CLI](docs/agents.md) | connect agents, tool reference, CLI |
 | [Integrations](docs/integrations.md) | Telegram, GitHub issue sync, Obsidian mirror, external memory |
 | [HTTP API](docs/api.md) | REST endpoints |
+| [Agent network](docs/agent-network.md) | private agent coordination and shared VPS artifacts |
 | [Release checks](docs/release-checks.md) | local verification, upgrade behavior and release gates |
 
 ## How it's built
@@ -103,6 +104,8 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 server.py        HTTP server, JSON API, SQLite schema and migrations, scheduler, auth
 pulse_mcp.py     MCP server (stdio) that calls the API
 pulse            command-line client
+agent_network.py private agent registry, queue, grants and artifact metadata
+network_*.py     outbound connector, clients and WebDAV storage adapter
 static/          the web app: plain HTML, CSS and JavaScript, no build step
 scripts/demo.py  sample-data demo
 tests/           end-to-end tests (python3 -m unittest discover -s tests)
@@ -118,3 +121,7 @@ For security reports, see [SECURITY.md](SECURITY.md).
 ## License
 
 [MIT](LICENSE)
+
+## Private agent network (opt-in preview)
+
+Connect multiple agents per device, queue requests while devices are offline, and exchange approved files through private Copyparty storage on your VPS. Includes an Agents screen, outbound Linux file connector, CLI and MCP tools. Separately owner-enabled [task workers](docs/task-workers.md) can invoke installed agent runtimes and return their feedback. See [setup, permissions and limits](docs/agent-network.md).

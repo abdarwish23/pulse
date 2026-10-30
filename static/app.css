@@ -214,3 +214,15 @@ label.ck input{width:auto}
 
 .login{max-width:360px;margin:12vh auto 0;display:grid;gap:12px;padding:24px}
 #me{cursor:pointer}
+
+/* Agent network follows the existing Pulse tokens and panels. */
+.network-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:12px}
+.network-grid .panel h2,.network-grant+h2{font-size:18px;margin:0 0 12px}
+.network-agent,.network-request{padding:14px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.network-agent .danger{margin-top:10px}
+.network-request .row{flex-wrap:wrap;gap:8px}
+.network-request pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+.network-rule{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.network-grant{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;margin:12px 0}
+.network-grant .err{grid-column:1/-1}
+@media(max-width:820px){.bottomnav{overflow-x:auto}.bottomnav .nav-i{min-width:48px}.network-rule{align-items:start;flex-direction:column}}

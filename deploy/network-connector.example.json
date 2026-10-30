@@ -1,0 +1,23 @@
+{
+  "url": "https://pulse.example.com",
+  "agents": [
+    {
+      "token_file": "~/.config/pulse/network/pc-codex.token",
+      "shares": {
+        "demos": {
+          "path": "/absolute/path/to/TelcoTower/demo-videos",
+          "requesters": ["vps/pi", "vps/claude"]
+        }
+      }
+    },
+    {
+      "token_file": "~/.config/pulse/network/pc-claude.token",
+      "shares": {
+        "reports": {
+          "path": "/absolute/path/to/reports",
+          "requesters": ["vps/pi"]
+        }
+      }
+    }
+  ]
+}
