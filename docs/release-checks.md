@@ -21,7 +21,7 @@ versions, commit and results. Do not infer Windows/macOS support from Linux test
 1. Back up the database and config privately and record the current commit.
 2. Rehearse the upgrade on a disposable copy, with Telegram and GitHub polling
    disabled. Never point a second test server at the live database.
-3. Migrations 5 and 6 add privacy provenance and durable delivery state. Existing
+3. Migrations 5 and 6 add privacy provenance and durable delivery state; migration 7 adds agent-network tables. Existing
    data stays in place. Older reminder notifications and `Todo done:` activity
    lack reliable provenance, so they remain visible to the owner only. No text is
    deleted. Existing private todos make their reminders private too.
@@ -56,5 +56,5 @@ Before publication, inspect all refs/assets intended to be public for secrets
 and personal data, run a redacted history/worktree secret scan, check the license
 and screenshots, prepare release notes and create the approved version tag.
 Do not rewrite history based on stale instructions about a `clean-main` branch.
-Version `1.1.0-dev` denotes this unreleased candidate; use the same final version
-in the MCP metadata, changelog and tag when releasing.
+Release 1.1.0 uses `1.1.0` in MCP metadata and the changelog, with tag `v1.1.0`.
+See [the release receipt](releases/1.1.0.md) for validation and known limits.

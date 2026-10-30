@@ -2,10 +2,12 @@
 
 ## Unreleased
 
+## 1.1.0 — 2026-10-31
+
 - Add owner-enabled device workers for automatic agent tasks and feedback, with runtime adapters, cancellation, and recovery after reconciled retries or expired-request pruning.
 - Add opt-in private agent coordination: scoped identities, offline request queue, outbound folder connector, Copyparty artifact storage, owner Agents view, CLI/MCP tools and recovery tests.
 
-Release candidate work for 1.1.0 (MCP reports `1.1.0-dev` until tagged).
+First public open-source release. Includes the original personal hub and the hardening and optional agent-network features below.
 
 - Separate Cloudflare human and service identities; machines still require a Pulse bearer token.
 - Enforce privacy in nested reminders, notifications, activity, read markers and privacy transitions. Retain ambiguous legacy derived history for the owner only.
@@ -23,7 +25,7 @@ Release candidate work for 1.1.0 (MCP reports `1.1.0-dev` until tagged).
 
 ## 1.0.0
 
-First public release.
+Original private baseline; not previously tagged or published.
 
 - **Today** dashboard with quick capture
 - **Projects** with a five-column board (Ideas, To do, In progress, Done, Blocked), drag and drop on touch screens, block owner and reason, timeline, automatic progress

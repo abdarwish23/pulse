@@ -1,5 +1,7 @@
 # Task worker delivery — 2026-10-30 JST
 
+> Historical implementation receipt. PRs #4, #5 and #6 were subsequently merged into main. For the public release status, use [the 1.1.0 receipt](releases/1.1.0.md). Paths and service observations below describe one deployment at the stated date, not installation defaults or current connectivity.
+
 Implementation: `7296426d61af4df2653c65df7d276a4d1f5f7406`,
 [PR #6](https://github.com/abdarwish23/pulse/pull/6), stacked on the existing
 agent-network branch. The owner explicitly requested installation on both devices

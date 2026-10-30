@@ -3,7 +3,7 @@
 <p align="center"><b>Your projects, notes, todos and reminders in one small self-hosted app that your AI agents can use too.</b></p>
 
 <p align="center">
-One Python file · Zero dependencies · SQLite · Works on phone, tablet and desktop · MCP server for agents
+Python standard library · No core dependencies · SQLite · Works on phone, tablet and desktop · MCP server for agents
 </p>
 
 <p align="center"><img src="docs/screenshots/today.png" alt="Pulse Today screen" width="900"></p>
@@ -73,7 +73,7 @@ command = "python3"
 args = ["/path/to/pulse/pulse_mcp.py", "--agent", "codex"]
 ```
 
-The agent then has 31 tools such as `get_today`, `add_todo`, `set_reminder`, `search_notes`, `move_card` and `remember`.
+The agent then has tools such as `get_today`, `add_todo`, `set_reminder`, `search_notes`, `move_card` and `remember`.
 See **[docs/agents.md](docs/agents.md)** for other clients, the full tool list, the CLI, and a short instruction block you can paste into `AGENTS.md` or `CLAUDE.md`.
 
 ## Use it from your phone
@@ -96,6 +96,8 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 | [Integrations](docs/integrations.md) | Telegram, GitHub issue sync, Obsidian mirror, external memory |
 | [HTTP API](docs/api.md) | REST endpoints |
 | [Agent network](docs/agent-network.md) | private agent coordination and shared VPS artifacts |
+| [Task workers](docs/task-workers.md) | opt-in automatic tasks using installed agent runtimes |
+| [1.1.0 release](docs/releases/1.1.0.md) | validation, upgrade notes and known limits |
 | [Release checks](docs/release-checks.md) | local verification, upgrade behavior and release gates |
 
 ## How it's built
