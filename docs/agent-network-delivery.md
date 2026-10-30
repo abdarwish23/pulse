@@ -1,5 +1,7 @@
 # Agent network implementation receipt
 
+> Historical implementation receipt. PRs #4, #5 and #6 were subsequently merged into main. For the public release status, use [the 1.1.0 receipt](releases/1.1.0.md). Paths and service observations below describe one deployment at the stated date, not installation defaults or current connectivity.
+
 Date: 2026-10-29. Implementation commit: `a3e7f8990892824240da8f38f5811db7ce6100e6`.
 Base: `805c412` (`codex/pulse-release-hardening`, draft PR #4). Feature branch: `codex/agent-network`.
 
@@ -21,11 +23,11 @@ Only Python 3.12 was available for this feature run; 3.10/3.13 were not rerun. R
 
 ## Deployment target observed (read-only)
 
-- Live checkout: `/home/ahmed/pulse`, main `1e667f0`.
-- Service: `/home/ahmed/.config/systemd/user/pulse.service`.
-- Current ExecStart: `/usr/bin/python3 /home/ahmed/pulse/server.py`; working directory `/home/ahmed/pulse`.
-- Config and DB: `/home/ahmed/pulse/config.json`, `/home/ahmed/pulse/data/pulse.db`.
-- Listener: `127.0.0.1:4100`; public URL `https://pulse.abdarwish.com`; external memory bridge enabled.
+- Live checkout: `~/pulse`, main `1e667f0`.
+- Service: `~/.config/systemd/user/pulse.service`.
+- Current ExecStart: `/usr/bin/python3 ~/pulse/server.py`; working directory `~/pulse`.
+- Config and DB: `~/pulse/config.json`, `~/pulse/data/pulse.db`.
+- Listener: `127.0.0.1:4100`; public URL `https://pulse.example.com`; external memory bridge enabled.
 - Actual current service memory ceiling: **150 MiB**. The new bounded transfer path needs the proposed **384 MiB** ceiling; Copyparty gets a separate 256 MiB ceiling.
 - Disk inspection: about **9.4 GiB free**, 91% used before isolated test tooling. Recheck before deployment. Port 4102 was free when inspected.
 - Agent network is not configured in the live service. Production config, database and runtime were not changed.
@@ -39,9 +41,9 @@ Existing Pulse gate #158 requires explicit deployment authorization. This candid
 
    ```bash
    umask 077
-   mkdir -p /home/ahmed/pulse-releases/a3e7f899
-   git -C /home/ahmed/pulse-agent-network archive a3e7f8990892824240da8f38f5811db7ce6100e6 | tar -x -C /home/ahmed/pulse-releases/a3e7f899
-   python3 /home/ahmed/pulse-releases/a3e7f899/scripts/setup_network_storage.py /home/ahmed/.local/share/pulse-storage --port 4102
+   mkdir -p ~/pulse-releases/a3e7f899
+   git -C ~/pulse-agent-network archive a3e7f8990892824240da8f38f5811db7ce6100e6 | tar -x -C ~/pulse-releases/a3e7f899
+   python3 ~/pulse-releases/a3e7f899/scripts/setup_network_storage.py ~/.local/share/pulse-storage --port 4102
    ```
 
    The storage destination must be new. Preserve any existing service/storage installation; do not overwrite it.
@@ -49,7 +51,7 @@ Existing Pulse gate #158 requires explicit deployment authorization. This candid
 3. Create a new private backup directory. Save the current config, service unit and any service drop-ins. Stop Pulse for the short migration window, then run the candidate backup helper against the live DB with explicit paths:
 
    ```bash
-   PULSE_DB=/home/ahmed/pulse/data/pulse.db PULSE_BACKUP_DIR=/home/ahmed/pulse/backups/pre-agent-network python3 /home/ahmed/pulse-releases/a3e7f899/backup.py
+   PULSE_DB=~/pulse/data/pulse.db PULSE_BACKUP_DIR=~/pulse/backups/pre-agent-network python3 ~/pulse-releases/a3e7f899/backup.py
    ```
 
    Record the exact generated snapshot filename. Verify backup integrity before proceeding. Existing tokens and memory-bridge configuration must remain unchanged.
@@ -59,9 +61,9 @@ Existing Pulse gate #158 requires explicit deployment authorization. This candid
    ```ini
    [Service]
    ExecStart=
-   ExecStart=/usr/bin/python3 /home/ahmed/pulse-releases/a3e7f899/server.py
-   Environment=PULSE_CONFIG=/home/ahmed/pulse/config.json
-   Environment=PULSE_DB=/home/ahmed/pulse/data/pulse.db
+   ExecStart=/usr/bin/python3 ~/pulse-releases/a3e7f899/server.py
+   Environment=PULSE_CONFIG=~/pulse/config.json
+   Environment=PULSE_DB=~/pulse/data/pulse.db
    MemoryMax=384M
    ```
 
@@ -82,16 +84,16 @@ Implementation is reviewable; production deployment and real-device enrollment r
 
 Owner authorization: “Yes let’s deploy”, covering the prepared candidate and pending hardening from PR #4. Application deployment completed at 18:58:54 UTC. Neither draft PR was merged and the repository remains private.
 
-- Pulse runs from `/home/ahmed/pulse-releases/a3e7f899`, using the original config and database through explicit environment variables. The original checkout remains unchanged. The new user-service drop-in sets the reviewed 384 MiB memory ceiling.
-- Copyparty 1.20.26 runs on loopback port 4102 from `/home/ahmed/.local/share/pulse-storage`, with anonymous access denied and a 256 MiB service ceiling. Retention is until withdrawal.
-- The enabled `pulse-connector.service` serves four VPS identities (`vps/pi`, `vps/claude`, `vps/codex`, `vps/opencode`). Each exposes only its new `/home/ahmed/pulse-shared/<agent>` folder under alias `shared`, with reciprocal grants to the other three identities. No existing project directory was shared. Connector readiness describes file operations, not an available model session.
+- Pulse runs from `~/pulse-releases/a3e7f899`, using the original config and database through explicit environment variables. The original checkout remains unchanged. The new user-service drop-in sets the reviewed 384 MiB memory ceiling.
+- Copyparty 1.20.26 runs on loopback port 4102 from `~/.local/share/pulse-storage`, with anonymous access denied and a 256 MiB service ceiling. Retention is until withdrawal.
+- The enabled `pulse-connector.service` serves four VPS identities (`vps/pi`, `vps/claude`, `vps/codex`, `vps/opencode`). Each exposes only its new `~/pulse-shared/<agent>` folder under alias `shared`, with reciprocal grants to the other three identities. No existing project directory was shared. Connector readiness describes file operations, not an available model session.
 - Pi, Claude Code and Codex MCP configurations point to the deployed adapter with separate private token files. Fresh subprocesses using each actual configuration passed initialize, tool discovery, network access and existing memory recall. Existing interactive sessions were not interrupted and still need to reload their MCP configuration. OpenCode identity/file serving is prepared; its runtime MCP configuration was not found and was not fabricated.
 - The `pulse` CLI now invokes the deployed release and supplies the original config/database paths for local administration. Set `PULSE_NETWORK_TOKEN_FILE` to select the intended identity for network commands.
-- Original config values and ordinary Pulse credentials were verified unchanged outside the new `agent_network` object. Config/MCP/CLI/service backups and evidence are private under `/home/ahmed/pulse-deployments/20261029-185828`.
+- Original config values and ordinary Pulse credentials were verified unchanged outside the new `agent_network` object. Config/MCP/CLI/service backups and evidence are private under `~/pulse-deployments/20261029-185828`.
 
 ### Verification on the deployed instance
 
-- Upgrade of a live-data snapshot to schema 7 passed before deployment. The final stopped-service snapshot is `/home/ahmed/pulse-deployments/20261029-185828/final-before/pulse-20261029-185854-8ofa064e.db`. Post-upgrade database integrity and foreign-key checks passed.
+- Upgrade of a live-data snapshot to schema 7 passed before deployment. The final stopped-service snapshot is `~/pulse-deployments/20261029-185828/final-before/pulse-20261029-185854-8ofa064e.db`. Post-upgrade database integrity and foreign-key checks passed.
 - Real HTTP requests exercised queue → running connector → real Copyparty → checksum-verified download. An additional authorized agent could retrieve the artifact without reading the original request. Unshared-folder access was denied. Withdrawal removed API access and the stored object. All synthetic source files were removed; there were zero registered artifacts and cleanup jobs at final verification.
 - Ordinary Pulse authentication and the external memory bridge work. Ordinary Pulse credentials and anonymous requests are denied network access; network credentials are denied normal Pulse API access. A new synthetic private todo created by local administration could not be read or changed through the agent API; that fixture was then removed.
 - The live instance intentionally has no password login, so a synthetic password-session check was inapplicable. Cloudflare owner login has **not** been claimed verified. The public URL returned HTTP 403 from the VPS, which has no configured Cloudflare Access service credential. Actual PC transport/public artifact transfer remains a separate check using the PC's existing credentials; no Access policy was weakened.
@@ -99,7 +101,7 @@ Owner authorization: “Yes let’s deploy”, covering the prepared candidate a
 
 ### Backups now installed
 
-The existing 03:15 local-time `pulse-backup.timer` remains enabled. Its service uses the validated database helper and then runs `scripts/backup_network.py` from immutable release `/home/ahmed/pulse-releases/b09d8fa`. It retains the existing 14 database snapshots plus seven consistent network snapshots in `/home/ahmed/pulse/backups/network` containing their own database, referenced artifact bytes, config/storage credentials and network token files. All are private on the VPS; an independent off-host copy is not configured by this deployment.
+The existing 03:15 local-time `pulse-backup.timer` remains enabled. Its service uses the validated database helper and then runs `scripts/backup_network.py` from immutable release `~/pulse-releases/b09d8fa`. It retains the existing 14 database snapshots plus seven consistent network snapshots in `~/pulse/backups/network` containing their own database, referenced artifact bytes, config/storage credentials and network token files. All are private on the VPS; an independent off-host copy is not configured by this deployment.
 
 A real synthetic artifact was uploaded through the running connector, snapshotted, and withdrawn. The independent database snapshot passed integrity checks and its saved artifact bytes still matched the expected hash after live deletion. Restrictive permissions passed. A simulated copy failure published no partial snapshot and retained the previous successful backup. An immediate run of the actual systemd backup service also passed.
 

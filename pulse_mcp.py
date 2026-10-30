@@ -422,7 +422,7 @@ def handle(msg):
     method, mid = msg.get("method"), msg.get("id")
     if method == "initialize":
         return {"protocolVersion": msg.get("params", {}).get("protocolVersion", "2025-06-18"),
-                "capabilities": {"tools": {}}, "serverInfo": {"name": "pulse", "version": "1.1.0-dev"},
+                "capabilities": {"tools": {}}, "serverInfo": {"name": "pulse", "version": "1.1.0"},
                 "instructions": "Pulse is the user's personal platform: projects (kanban), notes, todos, reminders, "
                                 "notifications and long-term memory. Call get_today first for personal requests. "
                                 "Times are in the user's local timezone. Private items are never shown to agents. "
