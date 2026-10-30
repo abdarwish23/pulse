@@ -74,6 +74,20 @@ pulse.example.com {
 Caddy obtains HTTPS certificates automatically. Pulse's password protects the app; failed sign-ins are rate limited (10 per 15 minutes per IP).
 Set `"public_url": "https://pulse.example.com"` so session cookies are marked `Secure`.
 
+### Login throttling behind a proxy
+
+By default Pulse ignores forwarded IP headers and limits attempts by socket
+peer. This is safe, but all users through one proxy share that limit. To use
+individual client IPs, configure only the actual trusted proxy addresses, e.g.
+`"trusted_proxies": ["127.0.0.1/32", "::1/128"]` for a local proxy.
+Use `"client_ip_header": "X-Forwarded-For"` when the proxy appends/overwrites that
+header correctly. Pulse walks the chain from the nearest hop to the first
+untrusted address. For a dedicated Cloudflare Tunnel, choose `"Cf-Connecting-Ip"`
+only if all traffic from that trusted peer comes through Cloudflare and the
+header is guaranteed to be overwritten. Do not trust an arbitrary incoming
+Cloudflare header through a general-purpose reverse proxy. Do not configure
+`0.0.0.0/0` as a trusted proxy. Incorrect/missing headers fall back to the peer.
+
 ### Install on your phone
 
 Open the HTTPS address, then:
@@ -86,14 +100,25 @@ Open the HTTPS address, then:
 
 `pulse-backup.timer` runs `backup.py` every night at 03:15 and keeps the 14 newest copies in `backups/`.
 Backups use SQLite's online backup API, so they are consistent while Pulse is running.
+They fail if the source is missing, uninitialized or inconsistent. Snapshot names
+include UTC time and a unique suffix; multiple backups in one day remain distinct.
+Each snapshot is validated before atomic publication. Set `PULSE_BACKUP_DIR` to
+use another destination. Files use mode 600 and backup directories mode 700 on POSIX.
 
 Restore:
 
 ```bash
 systemctl --user stop pulse
-cp backups/pulse-YYYYMMDD.db data/pulse.db
+mv data "data.before-restore-$(date +%Y%m%d-%H%M%S)"
+mkdir -m 700 data
+install -m 600 backups/<chosen-snapshot>.db data/pulse.db
 systemctl --user start pulse
 ```
+
+Replace `<chosen-snapshot>` before running. These commands assume the default
+`data/` location. Preserve the old directory (including any WAL/SHM files) until
+the restored app is verified. Never copy an old database over a running instance
+or mix it with leftover WAL files. Restore with the matching application version.
 
 Copy `backups/` (and `config.json`) off the machine from time to time.
 
@@ -103,7 +128,9 @@ Copy `backups/` (and `config.json`) off the machine from time to time.
 cd ~/pulse && git pull && systemctl --user restart pulse
 ```
 
-Database migrations run automatically on start. Take a backup first if you like: `python3 backup.py`.
+Before updating, run `python3 backup.py` and keep a private copy of `config.json`.
+Record the old commit. Database migrations run automatically on start; see
+[release checks](release-checks.md) for the privacy migration and rollback rules.
 
 ## Security checklist
 

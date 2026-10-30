@@ -2,7 +2,12 @@
 
 Agents talk to Pulse over its HTTP API with a bearer token. Two ready-made clients use it:
 the **MCP server** (`pulse_mcp.py`) for AI agents and the **CLI** (`pulse`) for shells and scripts.
-Both read the token from `PULSE_TOKEN` or `~/.config/pulse/token` (created by `python3 server.py init`).
+Both read the token from `PULSE_TOKEN`, then `PULSE_TOKEN_FILE`, then `~/.config/pulse/token` (created by `python3 server.py init`).
+
+`init` preserves any existing token file. For a second instance, set an unused
+`PULSE_TOKEN_FILE` path when initializing and in that instance's CLI/MCP environment.
+Rerunning `init` with that path exports an existing server token without replacing
+the credentials used by your first instance. No token is printed by `init`.
 
 Give each agent its own name so you can see who did what: `--agent codex`, `--agent claude`, and so on.
 
@@ -71,6 +76,9 @@ Access blocks requests without a browser sign-in, so non-browser agents need a *
 4. Check: `PULSE_URL=https://pulse.example.com ./pulse today`
 
 The MCP server and CLI then send `CF-Access-Client-Id` / `CF-Access-Client-Secret` to Cloudflare, plus their own Pulse token to Pulse.
+Both credentials are required: a Cloudflare service token grants passage through Access,
+but is never a human owner identity inside Pulse. Existing correctly configured clients
+continue to work without rotating either token.
 If Cloudflare rejects them, the error says it was not a Pulse response, so you know to check the service token and policy.
 
 ## Tools

@@ -13,9 +13,15 @@ Thanks for helping! Pulse's main feature is that it stays **simple**, so please 
 ```bash
 python3 scripts/demo.py                       # app with sample data on http://127.0.0.1:4101
 python3 -m unittest discover -s tests -v      # tests (no network needed)
+python3 scripts/check.py python3.10 python3.12 python3.13  # local release matrix
 ```
 
 Database changes go in `init_db()` in `server.py` as a new `PRAGMA user_version` step. Never edit an existing step.
+
+GitHub Actions runs only on manual dispatch. Pushes and pull requests do not
+consume hosted CI credits. Record local test commands, interpreter versions and
+results in the PR; do not claim unexecuted platforms passed. Node.js is optional
+for running the additional frontend checks, not a runtime dependency of Pulse.
 
 ## Pull requests
 

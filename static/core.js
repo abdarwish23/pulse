@@ -11,6 +11,12 @@ let projects = [], current = null, drag = null;
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const safeUrl = u => /^https?:\/\//i.test(u || "") ? u : "";
+const notificationUrl = value => {
+  if (typeof value !== "string" || /[\x00-\x20\x7f\\]/.test(value)) return "#/inbox";
+  if (value.startsWith("#/")) return value;
+  try { const u = new URL(value); if (["http:", "https:"].includes(u.protocol) && u.host) return value; } catch (_) {}
+  return "#/inbox";
+};
 function ago(ts) {
   const s = Date.now() / 1000 - ts;
   if (s < 60) return "just now";

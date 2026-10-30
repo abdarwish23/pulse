@@ -18,7 +18,7 @@ Pulse is deliberately **simple**:
 - **No dependencies.** It runs on the Python standard library and SQLite. No `pip install`, no Node build, no Docker required.
 - **One place for everything personal.** Projects, notes, todos, reminders, notifications and long-term memory.
 - **Built for agents.** Claude Code, Codex, Cursor and any other MCP client can read and update the same data you see, and every change shows who made it.
-- **Yours.** One database file on your own server. Back it up by copying it.
+- **Yours.** One database on your own server. `python3 backup.py` creates a consistent, validated snapshot while it runs.
 
 ## What's inside
 
@@ -45,7 +45,7 @@ Pulse is deliberately **simple**:
 
 ## Quick start
 
-You need **Python 3.10 or newer**. Nothing else.
+You need **Python 3.10 or newer**, with SQLite FTS5 and an IANA timezone database (included in typical Linux installations). No Python packages to install. Release checks target Linux; Windows and macOS are not yet qualified.
 
 ```bash
 git clone https://github.com/abdarwish23/pulse.git && cd pulse
@@ -95,6 +95,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 | [Agents, MCP and CLI](docs/agents.md) | connect agents, tool reference, CLI |
 | [Integrations](docs/integrations.md) | Telegram, GitHub issue sync, Obsidian mirror, external memory |
 | [HTTP API](docs/api.md) | REST endpoints |
+| [Release checks](docs/release-checks.md) | local verification, upgrade behavior and release gates |
 
 ## How it's built
 

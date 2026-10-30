@@ -82,6 +82,12 @@ class RSA:
 
 
 class AuthTests(unittest.TestCase):
+    def setUp(self):
+        server._login_fails.clear()
+
+    def tearDown(self):
+        server._login_fails.clear()
+
     def test_api_requires_auth(self):
         self.assertEqual(call("GET", "/api/projects", token=None)["HTTP"], 401)
         self.assertEqual(call("GET", "/api/projects", token="wrong")["HTTP"], 401)
@@ -114,7 +120,8 @@ class AuthTests(unittest.TestCase):
     def test_cloudflare_access_jwt(self):
         rsa = RSA()
         server._certs.update({"at": time.time(), "keys": {"k1": rsa.jwk}})
-        good = {"aud": ["AUD"], "iss": "https://team.cloudflareaccess.com", "exp": time.time() + 60, "email": "sam@example.com"}
+        good = {"aud": ["AUD"], "iss": "https://team.cloudflareaccess.com", "exp": time.time() + 60,
+                "email": "sam@example.com", "sub": "test-human", "type": "app"}
         hdr = lambda c: {"Cf-Ray": "x", "Cf-Access-Jwt-Assertion": rsa.jwt(c)}
         self.assertEqual(call("GET", "/api/me", token=None, headers=hdr(good))["name"], "sam")
         for bad in ({**good, "aud": ["OTHER"]}, {**good, "exp": 1}, {**good, "iss": "https://evil.cloudflareaccess.com"}):

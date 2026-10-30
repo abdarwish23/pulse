@@ -40,7 +40,7 @@ def token():
     t = os.environ.get("PULSE_TOKEN")
     if t:
         return t.strip()
-    f = Path.home() / ".config" / "pulse" / "token"
+    f = Path(os.environ.get("PULSE_TOKEN_FILE") or Path.home() / ".config" / "pulse" / "token").expanduser()
     return f.read_text().strip() if f.exists() else ""
 
 

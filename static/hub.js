@@ -236,9 +236,9 @@ async function renderInbox() {
   const list = await api("GET", "/notifications?limit=150");
   $("#app").innerHTML = `
     <div class="pagehead"><h1>Inbox</h1><span class="sp"></span><button id="readAll">Mark all read</button></div>
-    <section class="panel">${list.map(n => `<a class="li notif ${n.read ? "" : "unread"}" data-id="${n.id}" href="${n.link.startsWith("#") ? esc(n.link) : n.link ? esc(n.link) : "#/inbox"}">
+    <section class="panel">${list.map(n => `<a class="li notif ${n.read ? "" : "unread"}" data-id="${n.id}" href="${esc(notificationUrl(n.link))}">
       <span class="ki">${KIND_ICON[n.kind] || "🔔"}</span><div><b dir="auto">${esc(n.title)}</b>${n.body ? `<div class="mut sm" dir="auto">${esc(n.body)}</div>` : ""}
-      <div class="meta">${when(n.ts)}${n.delivered ? " · sent to Telegram" : n.error ? " · Telegram failed" : ""}</div></div></a>`).join("")
+      <div class="meta">${when(n.ts)}${n.delivered ? " · sent to Telegram" : n.delivery_status === "retrying" ? " · Telegram retry scheduled" : n.delivery_status === "pending" || n.delivery_status === "delivering" ? " · Telegram pending" : n.delivery_status === "cancelled" ? " · Telegram cancelled" : n.error ? " · Telegram failed" : ""}</div></div></a>`).join("")
       || `<p class="mut sm">No notifications yet.</p>`}</section>`;
   $("#readAll").onclick = () => run(() => api("POST", "/notifications/read", {}));
   $$(".notif").forEach(a => a.addEventListener("click", () => { if (a.classList.contains("unread")) api("POST", "/notifications/read", {ids: [+a.dataset.id]}).then(refreshBell); }));
@@ -251,7 +251,7 @@ async function renderMemory() {
   const q = memFilter.toLowerCase();
   const shown = entities.filter(e => !q || e.name.toLowerCase().includes(q) || e.type.toLowerCase().includes(q) || e.facts.some(f => f.text.toLowerCase().includes(q)));
   $("#app").innerHTML = `
-    <div class="pagehead"><div><h1>Memory</h1><div class="mut sm">What your agents remember long-term. Also learned nightly from conversations and mirrored to the Obsidian wiki.</div></div></div>
+    <div class="pagehead"><div><h1>Memory</h1><div class="mut sm">Facts you and your agents save about people, projects and preferences.</div></div></div>
     <div class="row" style="margin-bottom:12px"><input id="mq" type="search" placeholder="Search memory…" value="${esc(memFilter)}"></div>
     <form class="panel quick" id="mnew"><input name="entity" placeholder="Who / what (e.g. Alex, My App)" required><input name="type" placeholder="type (person, project…)">
       <input name="fact" placeholder="New fact" required dir="auto"><button class="pri">Remember</button></form>
