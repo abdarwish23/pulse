@@ -5,13 +5,14 @@
 
 The demo trusts localhost, so only run it on your own machine.
 """
-import json, os, sys, tempfile, threading, time
+import json, os, signal, sys, tempfile, threading, time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-TMP = Path(tempfile.mkdtemp(prefix="pulse-demo-"))
+_temporary = tempfile.TemporaryDirectory(prefix="pulse-demo-")
+TMP = Path(_temporary.name)
 PORT = int(os.environ.get("PULSE_DEMO_PORT", "4101"))
-(TMP / "config.json").write_text(json.dumps({"port": PORT, "secret": os.urandom(32).hex(), "trust_localhost": True,
+(TMP / "config.json").write_text(json.dumps({"port": PORT, "timezone": "UTC", "secret": os.urandom(32).hex(), "trust_localhost": True,
                                              "tokens": {"demo-token": "agent"}}))
 os.environ["PULSE_CONFIG"], os.environ["PULSE_DB"] = str(TMP / "config.json"), str(TMP / "pulse.db")
 sys.path.insert(0, str(ROOT))
@@ -67,7 +68,13 @@ s.telegram_send = lambda text: None
 threading.Thread(target=s.worker, daemon=True).start()
 srv = s.ThreadingHTTPServer(("127.0.0.1", PORT), s.Handler)
 print(f"Pulse demo running at http://127.0.0.1:{PORT}  (sample data in {TMP}; Ctrl+C to stop)", flush=True)
+def stop_demo(_signum, _frame):
+    raise KeyboardInterrupt
+signal.signal(signal.SIGTERM, stop_demo)
 try:
     srv.serve_forever()
 except KeyboardInterrupt:
     pass
+finally:
+    srv.server_close()
+    _temporary.cleanup()

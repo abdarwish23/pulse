@@ -1,3 +1,4 @@
+<p align="center"><img src="static/brand/pulse-mark.png" alt="Pulse: two nodes connected by a curved red heartbeat" width="160"></p>
 <h1 align="center">Pulse</h1>
 
 <p align="center"><b>Your projects, notes, todos and reminders in one small self-hosted app that your AI agents can use too.</b></p>
@@ -6,7 +7,10 @@
 Python standard library · No core dependencies · SQLite · Works on phone, tablet and desktop · MCP server for agents
 </p>
 
-<p align="center"><img src="docs/screenshots/today.png" alt="Pulse Today screen" width="900"></p>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png"><img src="docs/screenshots/today-light.png" alt="Pulse Today screen with fictional demo data" width="900"></picture></p>
+
+Every screenshot below uses an isolated **fictional demo workspace**. Project names,
+tasks, notes, reminders and memory are sample content, never the maintainer's personal data.
 
 ---
 
@@ -32,6 +36,7 @@ Pulse is deliberately **simple**:
 | **Inbox** | Every notification Pulse sent: reminders, cards moved to Done or Blocked, messages from agents. |
 | **Memory** | Long-term facts your agents remember about people, projects and preferences. You can see and edit all of it. |
 | **Privacy** | Mark any note, todo or reminder as *private*: you still see it, agents never do. |
+| **Appearance** | Light and dark themes with red Pulse branding. Follow your device setting or choose a theme that is remembered in your browser. |
 
 <table><tr>
 <td><img src="docs/screenshots/board.png" alt="Project board"></td>
@@ -42,6 +47,11 @@ Pulse is deliberately **simple**:
 </tr></table>
 
 <p align="center"><img src="docs/screenshots/mobile-today.png" alt="Pulse on a phone" width="260">&nbsp;&nbsp;<img src="docs/screenshots/mobile-board.png" alt="Board on a phone" width="260"></p>
+
+<details><summary>See both themes</summary>
+<p>Light</p><img src="docs/screenshots/today-light.png" alt="Light theme, fictional demo workspace" width="900">
+<p>Dark</p><img src="docs/screenshots/today-dark.png" alt="Dark theme, fictional demo workspace" width="900">
+</details>
 
 ## Quick start
 
@@ -99,6 +109,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 | [Task workers](docs/task-workers.md) | opt-in automatic tasks using installed agent runtimes |
 | [1.1.0 release](docs/releases/1.1.0.md) | validation, upgrade notes and known limits |
 | [Release checks](docs/release-checks.md) | local verification, upgrade behavior and release gates |
+| [Branding and screenshots](docs/branding.md) | logo assets, theme behavior and safe demo captures |
 
 ## How it's built
 

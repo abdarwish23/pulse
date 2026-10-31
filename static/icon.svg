@@ -1,1 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#0d1117"/><path d="M72 280h88l40-112 64 208 48-136 28 40h100" fill="none" stroke="#3fb950" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Pulse</title>
+  <defs><linearGradient id="red" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#72091d"/><stop offset=".5" stop-color="#df1235"/><stop offset="1" stop-color="#ff8069"/></linearGradient></defs>
+  <style>.tile{fill:#faf7f5}@media(prefers-color-scheme:dark){.tile{fill:#201b20}}</style>
+  <rect class="tile" width="512" height="512" rx="112"/>
+  <path transform="translate(56 156)" fill="url(#red)" d="M72 83C92 99 103 66 130 34C158 2 182 29 199 79C216 126 234 144 256 132C279 120 290 90 311 72C337 48 376 65 384 93C401 142 352 170 320 148C301 135 288 146 274 161C244 190 223 181 207 151C193 124 180 81 164 70C141 54 126 88 108 114C92 137 91 157 60 162C23 170 -2 143 6 111C12 77 42 67 72 83Z"/>
+</svg>

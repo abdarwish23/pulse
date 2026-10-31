@@ -1,0 +1,14 @@
+{
+  "tool": "Built-in image_gen",
+  "source": "Owner-selected red Organic Bridge logo",
+  "assets": [
+    {
+      "file": "static/brand/pulse-logo.png",
+      "prompt": "Edit the attached approved Pulse logo for use as a production web asset. Preserve the red gradient organic curved pulse connecting two large rounded nodes and the exact lowercase rounded \"pulse\" lettering, relative scale and spacing. Remove the off-white background completely to genuine transparency. Keep the charcoal wordmark. Tightly frame the horizontal logo lockup with only 3 percent transparent padding around the visible artwork; output a wide landscape transparent asset, no extra decorations or added shadow. Preserve clean antialiased boundaries. This is background removal and tight framing only, not a redesign."
+    },
+    {
+      "file": "static/brand/pulse-mark.png",
+      "prompt": "Edit the attached approved Pulse logo into an icon-only web asset. Keep ONLY the exact organic red gradient pulse emblem connecting two large rounded nodes. Remove the entire word \"pulse\" and remove background to genuine transparency. Preserve the emblem's shape, proportions, red gradient and subtle shading exactly. Center this one emblem on a square transparent canvas, filling 90 percent of the width; retain its original wide silhouette. No text, no new border or container, no added effects."
+    }
+  ]
+}
