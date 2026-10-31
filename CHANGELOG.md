@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Version Agents JavaScript and styles in the page so existing browsers fetch the redesigned UI after deployment.
+
 - Redesign Agents as a responsive device directory and readable task-session inbox, with editable device/agent names, PC/VPS/Cloud types, labeled live presence and separate work activity. Preserve permissions and files in secondary views; fix ready file connectors masking busy workers.
 
 - Add the approved Pulse project cover to the README and reusable brand assets.
