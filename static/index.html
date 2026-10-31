@@ -3,22 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0d1117">
+<meta name="theme-color" content="#faf7f5">
+<meta name="color-scheme" content="light dark">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pulse">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" href="/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/icon.svg">
+<script src="/theme.js"></script>
 <link rel="stylesheet" href="/app.css">
 <title>Pulse</title>
 </head>
 <body>
 <header>
   <div class="bar">
-    <a class="logo" href="#/"><i></i>Pulse</a>
+    <a class="logo" href="#/" aria-label="Pulse home"><span class="brand-art"><img src="/brand/pulse-logo.png" alt="Pulse" width="1774" height="887"><img class="brand-wordmark" src="/brand/pulse-logo.png" alt="" aria-hidden="true" width="1774" height="887"></span></a>
     <nav id="nav" class="topnav"></nav>
     <span class="sp"></span>
+    <label class="theme-picker"><span class="sr-only">Color theme</span><select id="themeSelect"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
     <a class="bell" href="#/inbox" title="Notifications"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><b id="bellN" style="display:none"></b></a>
     <span id="me" class="mut sm"></span>
   </div>

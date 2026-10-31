@@ -44,7 +44,7 @@ async function showLogin() {
   const opts = await fetch("/api/auth").then(r => r.json()).catch(() => ({}));
   $("#nav").innerHTML = $("#bnav").innerHTML = "";
   $("#app").innerHTML = `<form class="panel login" id="login">
-    <div class="logo" style="justify-content:center;font-size:24px"><i></i>Pulse</div>
+    <div class="logo login-brand"><span class="brand-art"><img src="/brand/pulse-logo.png" alt="Pulse" width="1774" height="887"><img class="brand-wordmark" src="/brand/pulse-logo.png" alt="" aria-hidden="true" width="1774" height="887"></span></div>
     ${opts.password ? `<input type="password" name="password" placeholder="Password" autocomplete="current-password" required autofocus>
       <button class="pri">Sign in</button>` : ""}
     ${opts.cloudflare ? `<a class="btn" href="/">Sign in with Cloudflare Access</a>` : ""}

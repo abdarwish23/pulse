@@ -1522,7 +1522,7 @@ class Handler(BaseHTTPRequestHandler):
         if not f.is_relative_to(STATIC.resolve()) or not f.is_file():
             return self.send_json(404, {"error": "not found"})
         ctype = {".html": "text/html; charset=utf-8", ".json": "application/manifest+json",
-                 ".svg": "image/svg+xml", ".js": "text/javascript", ".css": "text/css"}.get(f.suffix, "application/octet-stream")
+                 ".svg": "image/svg+xml", ".png": "image/png", ".js": "text/javascript", ".css": "text/css"}.get(f.suffix, "application/octet-stream")
         data = f.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", ctype)

@@ -19,7 +19,7 @@ def main():
         run([interpreter, "-m", "unittest", "discover", "-s", "tests", "-v"])
     node = shutil.which("node")
     if node:
-        for source in ("static/core.js", "static/board.js", "static/hub.js", "static/network.js"):
+        for source in ("static/theme.js", "static/core.js", "static/board.js", "static/hub.js", "static/network.js"):
             run([node, "--check", source])
         run([node, "tests/test_frontend.cjs"])
     else:
