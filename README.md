@@ -126,6 +126,10 @@ tests/           end-to-end tests (python3 -m unittest discover -s tests)
 
 The rules that keep Pulse simple: no runtime dependencies, no build step, one database file, and features only when they earn their place.
 
+## Support Pulse
+
+If Pulse helps you keep your projects and agents organized, you can [buy me a coffee](https://buymeacoffee.com/abdarwish) to support its development.
+
 ## Contributing
 
 Issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first. It's short.
