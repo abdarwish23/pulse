@@ -20,6 +20,11 @@ def main(argv=None):
     p=sub.add_parser('download');p.add_argument('id');p.add_argument('destination')
     p=sub.add_parser('claim');p.add_argument('--session',required=True)
     p=sub.add_parser('reply');p.add_argument('id');p.add_argument('--session',required=True);p.add_argument('--lease-file',required=True);p.add_argument('text')
+    p=sub.add_parser('workspace');ws=p.add_subparsers(dest='action',required=True)
+    ws.add_parser('status');ws.add_parser('list')
+    p=ws.add_parser('upload');p.add_argument('source');p.add_argument('path');p.add_argument('--file-id')
+    p=ws.add_parser('download');p.add_argument('id');p.add_argument('destination')
+    p=ws.add_parser('delete');p.add_argument('id')
     p=sub.add_parser('admin',help='Local owner operations using PULSE_CONFIG and PULSE_DB')
     adm=p.add_subparsers(dest='action',required=True)
     p=adm.add_parser('enroll');p.add_argument('device');p.add_argument('name');p.add_argument('--label');p.add_argument('--capability',action='append',default=[]);p.add_argument('--token-file',required=True)
@@ -53,6 +58,12 @@ def main(argv=None):
     else:
         c=Client()
         if a.cmd in ('agents','requests','grants','artifacts'):out=c.call('GET','/'+a.cmd)
+        elif a.cmd=='workspace':
+            if a.action=='status':out=c.call('GET','/workspace')
+            elif a.action=='list':out=c.call('GET','/workspace/files')
+            elif a.action=='upload':out=c.workspace_upload(a.source,a.path,a.file_id)
+            elif a.action=='download':out=c.workspace_download(a.id,a.destination)
+            else:out=c.call('DELETE','/workspace/files/'+c.workspace_id(a.id),{})
         elif a.cmd=='get':out=c.call('GET','/requests/'+a.id)
         elif a.cmd in ('cancel','retry'):out=c.call('POST','/requests/'+a.id+'/'+a.cmd,{'reconciled':True} if a.cmd=='retry' else {})
         elif a.cmd in ('request-file','message'):

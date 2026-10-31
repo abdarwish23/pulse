@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an owner-enabled shared workspace for all enrolled agents: editable 1 GiB capacity, 24-hour expiry, verified file uploads/downloads, CLI/MCP tools, access indicators and temporary-file backup exclusion. Replace agent initials with locally served official identity logos.
+
 - Version Agents JavaScript and styles in the page so existing browsers fetch the redesigned UI after deployment.
 
 - Redesign Agents as a responsive device directory and readable task-session inbox, with editable device/agent names, PC/VPS/Cloud types, labeled live presence and separate work activity. Preserve permissions and files in secondary views; fix ready file connectors masking busy workers.

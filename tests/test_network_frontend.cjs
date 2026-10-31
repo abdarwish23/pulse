@@ -21,3 +21,7 @@ run('networkView.stale=true');
 assert.ok(!run(`networkPresence(${JSON.stringify(online)})`).includes('Online'));
 assert.ok(run(`networkPresence(${JSON.stringify(online)})`).includes('Status unavailable'));
 console.log('Network escaping, device labels, request/reply semantics and stale presence checks passed.');
+
+assert.ok(run(`networkAvatar({id:'pc/claude',label:'Renamed'})`).includes('/agent-logos/claude.svg'));
+assert.ok(run(`networkAvatar({id:'vps/codex',label:'Builder'})`).includes('/agent-logos/codex.svg'));
+assert.ok(!run(`networkAvatar({id:'pc/unknown',label:'<img onerror=x>'})`).includes('onerror'));

@@ -5,7 +5,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
 
 class ClientError(Exception):
@@ -101,6 +101,44 @@ class Client:
             with os.fdopen(fd,'wb') as f:
                 f.write(data); f.flush(); os.fsync(f.fileno())
         except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        return {'path':str(path.absolute()),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()}
+
+    def workspace_upload(self, source, path, file_id=None):
+        import stat
+        import uuid
+        from agent_network import relative_path
+        relative_path(path)
+        file_id = file_id or uuid.uuid4().hex
+        self.workspace_id(file_id)
+        # Explicit files only: no devices, FIFOs or symbolic links.
+        fd=os.open(Path(source).expanduser(),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        with os.fdopen(fd,'rb') as stream:
+            info=os.fstat(stream.fileno())
+            if not stat.S_ISREG(info.st_mode) or info.st_size>32*1024*1024:
+                raise ClientError('Upload requires a regular file up to 32 MiB')
+            data=stream.read(32*1024*1024+1)
+        if len(data)>32*1024*1024:
+            raise ClientError('File exceeds 32 MiB')
+        return self.call('POST','/workspace/files/'+file_id+'?path='+quote(path,safe=''),data=data,
+                         extra={'Content-Type':'application/octet-stream','X-Content-SHA256':hashlib.sha256(data).hexdigest()})
+
+    @staticmethod
+    def workspace_id(file_id):
+        import re
+        if not isinstance(file_id,str) or not re.fullmatch('[0-9a-f]{32}',file_id):
+            raise ClientError('Invalid workspace file id')
+        return file_id
+
+    def workspace_download(self, file_id, destination):
+        data=self.call('GET','/workspace/files/'+self.workspace_id(file_id),download=True)
+        path=Path(destination).expanduser()
+        fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        try:
+            with os.fdopen(fd,'wb') as stream:
+                stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        except BaseException:
             path.unlink(missing_ok=True)
             raise
         return {'path':str(path.absolute()),'size':len(data),'sha256':hashlib.sha256(data).hexdigest()}

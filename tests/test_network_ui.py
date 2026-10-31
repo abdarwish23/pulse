@@ -23,7 +23,7 @@ class DeviceMigrationTests(unittest.TestCase):
         tables = ('network_agents','network_sessions','network_grants','network_requests')
         before = {t:[tuple(r) for r in con.execute('SELECT * FROM '+t)] for t in tables}
         n.migrate(con); n.migrate(con)
-        self.assertEqual(con.execute('PRAGMA user_version').fetchone()[0],8)
+        self.assertEqual(con.execute('PRAGMA user_version').fetchone()[0],9)
         for t in tables:self.assertEqual(before[t],[tuple(r) for r in con.execute('SELECT * FROM '+t)])
         self.assertEqual({r['id']:r['kind'] for r in con.execute('SELECT * FROM network_devices')},
                          {'pc':'pc','vps-eu':'vps','cloud-build':'cloud','workstation':'other'})
