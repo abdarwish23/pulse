@@ -22,6 +22,7 @@ def main():
         for source in ("static/theme.js", "static/core.js", "static/board.js", "static/hub.js", "static/network.js"):
             run([node, "--check", source])
         run([node, "tests/test_frontend.cjs"])
+        run([node, "tests/test_network_frontend.cjs"])
     else:
         print("Frontend checks NOT RUN: install Node.js for release validation.")
         return 1

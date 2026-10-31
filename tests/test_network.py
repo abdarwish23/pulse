@@ -58,6 +58,46 @@ class NetworkTests(unittest.TestCase):
     def sql(self,sql,args=()):
         with closing(server.db()) as con,con:return con.execute(sql,args).fetchall()
 
+    def test_device_and_agent_names_preserve_identity_and_authority(self):
+        job = self.request('message')
+        original = self.sql('SELECT id,device,token_hash,capabilities FROM network_agents WHERE id=?', (self.ids['codex'],))[0]
+        grants = [tuple(r) for r in self.sql('SELECT * FROM network_grants WHERE source=?', (self.ids['codex'],))]
+        path = '/api/network/devices/' + self.device
+        changed = owner('POST', path, {'label':'  Tokyo Cloud  ', 'kind':'cloud'})
+        self.assertEqual(changed, {'id':self.device, 'label':'Tokyo Cloud', 'kind':'cloud'})
+        self.assertEqual(owner('POST','/api/network/agents/label',{'agent':self.ids['codex'],'label':'Build assistant'})['label'],'Build assistant')
+        self.assertEqual(tuple(self.sql('SELECT id,device,token_hash,capabilities FROM network_agents WHERE id=?', (self.ids['codex'],))[0]), tuple(original))
+        self.assertEqual([tuple(r) for r in self.sql('SELECT * FROM network_grants WHERE source=?', (self.ids['codex'],))], grants)
+        server.init_db()
+        self.assertEqual(next(d for d in owner('GET','/api/network/devices') if d['id']==self.device)['label'],'Tokyo Cloud')
+        self.assertEqual(self.claim(kind='message')['id'],job['id'])
+        self.assertEqual(self.clients['pi'].call('GET','/requests/'+job['id'])['recipient'], self.ids['codex'])
+        for body in ({'label':' ', 'kind':'cloud'},{'label':'x'*101,'kind':'pc'},{'label':'Valid','kind':'invalid'},{'label':'bad\nname','kind':'pc'}):
+            self.assertEqual(owner('POST',path,body)['HTTP'],400)
+        self.assertEqual(call('POST',path,{'label':'Hijacked','kind':'pc'},token=self.tokens['pi'])['HTTP'],403)
+        self.assertEqual(call('POST','/api/network/agents/label',{'agent':self.ids['codex'],'label':'Hijacked'},token=self.tokens['pi'])['HTTP'],403)
+        self.assertEqual(call('POST',path,{'label':'Hijacked','kind':'pc'},token=None,headers={'Cookie':'pulse_session='+server.make_session(),'Origin':'https://evil.example'})['HTTP'],403)
+        self.assertEqual(owner('POST','/api/network/devices/missing',{'label':'Missing','kind':'pc'})['HTTP'],404)
+
+    def test_busy_worker_is_not_masked_by_ready_file_connector(self):
+        c = self.clients['codex']
+        c.call('POST','/heartbeat',{'session_id':'files','capabilities':['file.read']})
+        c.call('POST','/heartbeat',{'session_id':'worker','capabilities':['message'],'state':'busy'})
+        def agent():return next(a for a in c.call('GET','/agents') if a['id']==self.ids['codex'])
+        self.assertEqual((agent()['status'],agent()['activity']),('busy','working'))
+        self.sql('UPDATE network_sessions SET last_seen=? WHERE agent=? AND id=?',(stamp()-100,self.ids['codex'],'worker'))
+        self.assertEqual((agent()['status'],agent()['activity']),('ready','files-only'))
+        job=self.request('message');claimed=self.claim('worker','message')
+        self.assertEqual(claimed['id'],job['id'])
+        self.assertEqual(agent()['activity'],'working')
+        c.call('POST','/requests/'+job['id']+'/complete',{'session_id':'worker','lease':claimed['lease'],'result':{'message':'Done'}})
+        response=c.call('GET','/requests/'+job['id'])
+        self.assertIsNotNone(response['finished_at'])
+        self.assertGreaterEqual(response['updated_at'],response['created_at'])
+        self.assertEqual(agent()['activity'],'idle')
+        self.sql('UPDATE network_sessions SET last_seen=? WHERE agent=?',(stamp()-100,self.ids['codex']))
+        self.assertEqual((agent()['status'],agent()['activity']),('offline','offline'))
+
     def test_identity_cannot_be_spoofed_or_cross_boundary(self):
         self.assertEqual(call('GET','/api/network/agents')['HTTP'],401)
         self.assertEqual(call('GET','/api/network/agents',token=None)['HTTP'],401)

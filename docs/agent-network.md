@@ -159,3 +159,68 @@ The second command creates private disposable storage, checks anonymous denial a
 - [OWASP file-upload guidance](https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html): private storage, authorization, bounds and safe serving.
 
 Versions and sources checked 2026-10-29. No claim of universal agent compatibility or production deployment follows from local tests.
+
+## Agent directory and task sessions
+
+The Agents page groups identities by **device**, with a three-column directory,
+session list and conversation reader on desktop. On phones (up to 900 CSS pixels),
+these become separate Agents → Sessions → Conversation views. Back navigation
+keeps the selected agent and session; the search field filters names, devices and
+message text. **All agents** removes the agent filter.
+
+Use the pencil beside a device to change its display name and type (**PC**, **VPS**,
+**Cloud** or **Other**). Any number of device instances can share a type, within
+the existing 100-agent enrollment limit. For example, `cloud-build` and
+`cloud-research` can be named “Build Cloud” and “Research Cloud”. Names are saved
+on the server, not just in one browser. Agent names can be changed from the agent's
+Details view or Settings → Manage agents. These edits never change stable device
+or agent IDs, tokens, grants, pending requests or message associations. Device
+names may match; use the stable identity in connection details to disambiguate.
+Cloud is a display category for an enrolled environment; choosing it does not
+provision a machine or connect a provider.
+
+Green **Online** and red **Offline** dots always include text. Presence uses the
+existing 90-second heartbeat window; the UI refreshes every 30 seconds while the
+page is visible and not being edited. **Working** is separate: a fresh busy
+connection or an active request leased to a fresh connection takes priority over
+an idle file connector. **Files only** means the file connector is available but
+no live message worker is advertising readiness. Lost refreshes show **Status
+unavailable**, never cached green presence as if it were current.
+
+Each task session represents one existing request and its reply. Separate tasks
+between the same agents are not merged into an invented conversation. The reader
+shows the original request, returned result, delivery state and actual recorded
+timestamps. It does not expose a model's private chat history or invent streaming
+intermediate updates. Older replies without a retained completion timestamp are
+labeled “Reply”. The list contains the newest 200 requests; a linked retained
+request outside that window can still be opened. Existing retention rules apply.
+
+Connection history, permissions, revocation and shared files remain available in
+Details and Settings. Opening these views does not alter permissions. This page
+is a monitor, not a message composer.
+
+### Owner metadata API and upgrade
+
+Schema version **8** adds `network_devices` and a request-audit index. Migration
+backfills each existing device without changing credentials, grants, sessions or
+requests. Existing `pc`, `vps`, `cloud` IDs (and IDs starting with the type and a
+hyphen) receive the matching type; other IDs start as Other. Back up before
+upgrading using the ordinary deployment procedure.
+
+- `GET /api/network/devices`: `{id, label, kind}` rows, available to the owner and
+  authenticated network identities.
+- `POST /api/network/devices/<stable-device-id>`: owner only;
+  `{"label":"Home PC","kind":"pc"}`. Labels are trimmed, nonblank, at most 100
+  characters and cannot contain control characters.
+- `POST /api/network/agents/label`: owner only;
+  `{"agent":"pc/codex","label":"Build assistant"}` with the same label rules.
+- `GET /api/network/agents` adds `last_seen` and `activity`; `status=busy` now takes
+  priority when an agent also has a ready connection. Existing keys remain.
+- Request responses add `updated_at`, `started_at` and `finished_at` from retained
+  audit events. Missing start/completion timestamps are `null`; `updated_at`
+  falls back to the request's creation time.
+
+For a safe local preview, run `python3 scripts/demo_agents.py` and visit
+`http://127.0.0.1:4102/#/agents`. It owns a temporary database, uses fictional PC,
+VPS and Cloud devices, never starts model workers or external integrations, and
+removes its temporary data on exit. The page is visibly labeled as a demo.

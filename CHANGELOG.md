@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Redesign Agents as a responsive device directory and readable task-session inbox, with editable device/agent names, PC/VPS/Cloud types, labeled live presence and separate work activity. Preserve permissions and files in secondary views; fix ready file connectors masking busy workers.
+
 - Add the approved Pulse project cover to the README and reusable brand assets.
 - Add a Buy Me a Coffee support link and GitHub Sponsor button for Pulse.
 - Apply the selected red gradient, curved two-node Pulse identity to the app header, sign-in screen and favicon.

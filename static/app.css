@@ -251,3 +251,154 @@ label.ck input{width:auto}
 .network-grant .err{grid-column:1/-1}
 @media(max-width:820px){.bottomnav{overflow-x:auto}.bottomnav .nav-i{min-width:48px}.network-rule{align-items:start;flex-direction:column}}
 @media(max-width:440px){.bottomnav .nav-i{font-size:9.5px}}
+
+/* Agent directory: one identity per row, task sessions beside their conversation. */
+.net-page{--net-online:#18744e;--net-offline:#b42338;--net-selected:#fae9ee;--net-message:#f5f0f3;--net-avatar-codex:#fbd2db;--net-avatar-claude:#ffe0c2;--net-avatar-pi:#dbe5fc;--net-avatar-opencode:#c9ebe6}
+[data-theme=dark] .net-page,[data-theme=dark] .net-dialog{--net-online:#6fd8aa;--net-offline:#ff929e;--net-selected:#3c2631;--net-message:#2e252c;--net-avatar-codex:#673643;--net-avatar-claude:#634830;--net-avatar-pi:#344460;--net-avatar-opencode:#28554e}
+.net-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:8px 0 18px}
+.net-heading h1{font-size:28px;letter-spacing:-.6px;margin:0 0 3px}
+.net-heading p{margin:0;font-size:14px}
+.net-actions{display:flex;gap:8px}
+.net-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.net-search{display:flex;align-items:center;gap:9px;background:var(--input);border:1px solid var(--line);border-radius:10px;padding:0 12px;width:360px;max-width:100%}
+.net-search input{border:0;background:transparent;padding:11px 0;min-width:0;outline-offset:4px}
+.net-icon{display:block;flex:none;width:18px;height:18px;opacity:.8}
+[data-theme=dark] .net-icon{filter:invert(1)}
+.net-workspace{display:grid;grid-template-columns:minmax(235px,25%) minmax(270px,29%) minmax(0,1fr);gap:12px;min-height:590px;height:calc(100dvh - 235px);max-height:1100px}
+.net-column{border:1px solid var(--line);border-radius:12px;background:var(--card);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.net-column-head{min-height:62px;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.net-column-head h2{font-size:16px;margin:0;letter-spacing:-.2px}
+.net-column-head p{margin:3px 0 0}
+.net-column-head h2 .mut{font-weight:400}
+.net-text-button{border:0;background:transparent;color:var(--acc);padding:6px;font-size:13px}
+.net-scroll{overflow:auto;min-height:0;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+.net-directory .net-scroll,.net-sessions .net-scroll{flex:1}
+.net-device{padding:8px 5px 16px;margin:0 12px;border-bottom:1px solid var(--line)}
+.net-device:last-child{border-bottom:0}
+.net-device-head{display:flex;align-items:center;gap:3px;margin:4px 0 8px}
+.net-device-toggle{display:flex;align-items:center;gap:9px;flex:1;min-width:0;background:none;border:0;text-align:left;padding:8px 0}
+.net-device-toggle>span{min-width:0;flex:1;overflow-wrap:anywhere}
+.net-device-toggle b{font-size:15px;line-height:1.3;display:block}
+.net-device-toggle small{display:block;color:var(--mut);font-size:12px;margin-top:3px}
+.net-device-toggle>.net-icon:last-child{width:13px;height:13px;transform:rotate(180deg)}
+.net-device-toggle[aria-expanded=false]>.net-icon:last-child{transform:none}
+.net-icon-button{display:flex;align-items:center;justify-content:center;flex:none;width:36px;height:36px;padding:8px;border-color:transparent;background:transparent}
+.net-icon-button:hover{background:var(--hover);border-color:var(--line)}
+.net-agent{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:0;background:transparent;border-radius:9px;padding:13px 8px;min-height:76px}
+.net-agent:hover,.net-session:hover{background:var(--hover)}
+.net-agent.selected,.net-session.selected{background:var(--net-selected)}
+.net-avatar{display:flex;align-items:center;justify-content:center;width:38px;height:38px;flex:none;border-radius:50%;background:var(--surface);color:var(--fg);font-weight:650;font-size:17px}
+.net-avatar.codex{background:var(--net-avatar-codex,#fbd2db)}.net-avatar.claude{background:var(--net-avatar-claude,#ffe0c2)}.net-avatar.pi{background:var(--net-avatar-pi,#dbe5fc)}.net-avatar.opencode{background:var(--net-avatar-opencode,#c9ebe6)}
+.net-agent-copy{flex:1;min-width:0;overflow-wrap:anywhere}
+.net-agent-copy>b{display:block;font-size:15px;font-weight:650;margin-bottom:5px}
+.net-agent>.net-icon{width:12px;height:12px}
+.net-agent-status{display:block;font-size:12px;line-height:1.6}
+.net-presence{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.net-presence i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block;flex:none}
+.net-presence.online{color:var(--net-online,var(--active))}.net-presence.offline{color:var(--net-offline,var(--blocked))}.net-presence.unknown{color:var(--mut)}
+.net-session{display:block;width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;text-align:left;padding:18px;overflow-wrap:anywhere}
+.net-session-title{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+.net-session-title b{font-size:15px;line-height:1.45;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;flex:1}
+.net-session-title time{font-size:11px;color:var(--mut);white-space:nowrap;flex:none}
+.net-participants{display:block;font-size:12px;color:var(--mut);margin:0 0 8px;line-height:1.5}
+.net-preview{color:var(--mut);font-size:13px;line-height:1.55;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;margin-bottom:10px}
+.net-badge{display:inline-flex;align-items:center;font-size:12px;line-height:1.4;border-radius:99px;background:var(--surface);color:var(--mut);padding:3px 9px}
+.net-badge.leased{background:#18744e14;color:var(--active)}
+.net-badge.failed,.net-badge.interrupted,.net-badge.expired{background:#b4233810;color:var(--blocked)}
+.net-badge.queued{color:var(--paused)}
+.net-footnote{margin:0;border-top:1px solid var(--line);padding:10px 16px;font-size:11px;color:var(--mut)}
+.net-conversation-head{padding:20px 22px 18px;border-bottom:1px solid var(--line)}
+.net-conversation-title{display:flex;align-items:flex-start;gap:12px}
+.net-conversation-title h2{margin:0;font-size:21px;font-weight:650;letter-spacing:-.4px;flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.4}
+.net-conversation-participants{font-size:13px;margin:10px 0 12px;color:var(--mut);overflow-wrap:anywhere}
+.net-conversation-head .row{flex-wrap:wrap;gap:8px}
+#netConversation{padding:24px 22px;flex:1}
+.net-message{display:flex;gap:12px;margin:0 0 28px}
+.net-message>div{min-width:0;flex:1}
+.net-message-meta{display:flex;align-items:baseline;gap:12px;justify-content:space-between}
+.net-message-meta time{color:var(--mut);font-size:12px;white-space:nowrap}
+.net-sender{font-weight:650;font-size:14px;background:transparent;border:0;padding:0;text-align:left;overflow-wrap:anywhere}
+.net-sender:hover{text-decoration:underline}
+.net-message-device{font-size:12px;color:var(--mut);margin:2px 0 10px;overflow-wrap:anywhere}
+.net-message-body{font-size:14px;line-height:1.7;padding:12px 14px;background:var(--net-message);border-radius:0 10px 10px 10px;white-space:pre-wrap;overflow-wrap:anywhere;max-width:65ch}
+.net-activity{background:var(--surface);padding:13px 16px;border-radius:8px;color:var(--mut);font-size:14px;margin:0 0 25px}
+.net-activity.attention{color:var(--blocked)}
+.net-empty{padding:32px 22px;color:var(--mut);font-size:14px}
+.net-empty h2,.net-empty h3{font-size:17px;color:var(--fg);margin:0 0 8px}
+.net-warning{padding:12px;border:1px solid var(--paused);border-radius:8px;color:var(--paused)}
+.net-mobile-tabs,.net-mobile-back{display:none}
+.net-dialog{width:min(600px,calc(100vw - 32px));max-height:85dvh;padding:22px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:14px}
+.net-dialog::backdrop{background:#17121666}
+.net-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.net-dialog-head h2{font-size:21px;margin:0}
+.net-dialog .form{margin:16px 0}
+.net-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;background:var(--code-block);padding:12px}
+.net-dialog summary{cursor:pointer;min-height:44px;padding:10px 0}
+.net-dialog dd{margin:0 0 12px;overflow-wrap:anywhere}.net-dialog dt{font-weight:650;font-size:13px;color:var(--mut)}
+.net-dialog .network-rule{gap:12px;overflow-wrap:anywhere}.net-dialog .network-rule>span{min-width:0;flex:1}
+.net-dialog .network-rule button{flex:none;font-size:12px;max-width:120px}
+.net-settings-tabs{display:flex;gap:5px;flex-wrap:wrap}.net-settings-tabs .on{color:var(--acc);background:var(--surface)}
+.net-manage-agent{display:block;text-align:left;width:100%;margin:8px 0;overflow-wrap:anywhere}.net-manage-agent>span{display:block;font-size:12px;margin-top:5px}
+@media(min-width:901px){.net-page .net-workspace[data-pane=conversation]{grid-template-columns:minmax(235px,25%) minmax(270px,29%) minmax(0,1fr)}}
+@media(max-width:1100px) and (min-width:901px){.net-workspace,.net-page .net-workspace[data-pane=conversation]{grid-template-columns:235px 260px minmax(0,1fr)}.net-agent{gap:8px;padding-left:2px;padding-right:2px}.net-device{margin:0 8px}.net-conversation-head,#netConversation{padding:18px 16px}.net-message{gap:8px}.net-message>.net-avatar{width:28px;height:28px;font-size:13px}}
+@media(max-width:900px){
+  .net-heading{align-items:flex-start;margin:4px 0 18px}.net-heading h1{font-size:27px}.net-heading p{font-size:13px}.net-live{display:none}
+  .net-actions{gap:4px}.net-actions button{font-size:12px;padding:8px;min-height:40px}
+  .net-toolbar{display:block;margin-bottom:12px}.net-search{width:100%}
+  .net-mobile-tabs{display:flex;border-bottom:1px solid var(--line);margin-top:12px;gap:16px}
+  .net-mobile-tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;padding:12px 18px;color:var(--mut);font-weight:600}
+  .net-mobile-tabs button.on{color:var(--acc);border-color:var(--acc)}
+  .net-workspace{display:block;min-height:0;height:auto;max-height:none}
+  .net-workspace .net-column{display:none;border-radius:10px}
+  .net-workspace[data-pane=agents] .net-directory,.net-workspace[data-pane=sessions] .net-sessions,.net-workspace[data-pane=conversation] .net-conversation{display:flex}
+  .net-scroll{max-height:calc(100dvh - 330px);min-height:220px;overscroll-behavior:auto}
+  .net-directory .net-column-head{display:none}.net-directory{background:transparent;border:0;overflow:visible}
+  .net-directory .net-scroll{max-height:none;overflow:visible;min-height:0}
+  .net-device{margin:0 0 12px;padding:8px 12px 8px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  .net-device:last-child{border-bottom:1px solid var(--line)}
+  .net-device-head{margin-bottom:2px}.net-device-toggle{padding:8px 0;min-height:48px}.net-device-toggle b{font-size:16px}
+  .net-agent{min-height:77px;padding:12px 5px;border-radius:8px}.net-agent+.net-agent{border-top:1px solid var(--line)}
+  .net-agent-copy>b{font-size:16px}.net-agent-status{font-size:13px}.net-avatar{width:40px;height:40px;font-size:18px}
+  .net-icon-button{width:44px;height:44px}
+  .net-mobile-back{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:var(--acc);padding:8px 0;min-height:44px;font-size:14px}
+  .net-conversation-head{padding:12px 18px 18px}.net-conversation-title h2{font-size:22px}
+  #netConversation{padding:20px 16px;max-height:none;min-height:280px}
+  .net-message-body{font-size:15px;padding:12px;line-height:1.65}.net-message{gap:10px}
+  .net-message-meta{gap:6px}.net-message-meta time{font-size:11px}
+  .net-message>.net-avatar{width:30px;height:30px;font-size:14px}
+  .net-column-head{padding:12px 16px}.net-sessions .net-scroll{max-height:none;min-height:200px;overflow:visible}
+  .net-session{padding:18px 16px}.net-session-title b{font-size:16px}.net-participants{font-size:13px}.net-preview{font-size:14px}
+  .net-footnote{font-size:12px}.net-dialog{padding:18px}.net-dialog button{min-height:44px}
+}
+@media(prefers-reduced-motion:no-preference){.net-presence.online i{box-shadow:0 0 0 3px #18744e0d}}
+@media(min-width:901px){
+  .net-page{position:relative}
+  .net-heading{min-height:65px;margin-bottom:18px;padding-right:560px}
+  .net-heading .net-actions{position:absolute;right:0;top:10px}
+  .net-toolbar{position:absolute;right:180px;top:10px;margin:0}
+  .net-toolbar .net-search{width:340px}
+  .net-workspace{height:calc(100dvh - 220px)}
+}
+@media(max-width:1100px) and (min-width:901px){
+  .net-heading{padding-right:440px}.net-toolbar .net-search{width:250px}.net-heading p{font-size:12px}.net-live{display:none}
+}
+.net-conversation-roster{display:none}
+@media(max-width:900px){
+  .net-page[data-pane=conversation] .net-heading,.net-page[data-pane=conversation] .net-toolbar{display:none}
+  .net-page[data-pane=conversation] .net-conversation{border:0;background:transparent}
+  .net-page[data-pane=conversation] .net-conversation-head{padding:0 0 16px}
+  .net-page[data-pane=conversation] #netConversation{padding:20px 0}
+  .net-page[data-pane=conversation] .net-conversation-title h2{font-size:24px}
+  .net-conversation-participants{display:none}
+  .net-conversation-roster{display:block;margin:16px 0;background:var(--card);border-radius:10px;border:1px solid var(--line);padding:0 12px}
+  .net-participant{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;width:100%;padding:12px 0;border:0;background:transparent;border-radius:0}
+  .net-participant+.net-participant{border-top:1px solid var(--line)}
+  .net-participant>span:first-child{min-width:0;overflow-wrap:anywhere}
+  .net-participant small{display:block;color:var(--mut);font-size:12px;margin-top:3px}
+  .net-participant>span:last-child{font-size:12px;text-align:right}
+}
+@media(min-width:901px){
+  .net-agent-status{font-size:13px}.net-agent-copy>b,.net-session-title b{font-size:16px}
+  .net-session-title time{font-size:12px}.net-participants{font-size:13px}
+  .net-preview,.net-sender{font-size:14px}.net-message-body{font-size:15px}
+}
