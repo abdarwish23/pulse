@@ -54,11 +54,10 @@ def main():
   flags:
     e2ds
     df: 2g
-    vmaxb: 1g
     vmaxn: 10000
     nosub
 ''')
-    fragment={'agent_network':{'enabled':True,'artifact_ttl_seconds':0,'storage':{'url':f'http://127.0.0.1:{args.port}/artifacts',
+    fragment={'agent_network':{'enabled':True,'artifact_ttl_seconds':86400,'storage':{'url':f'http://127.0.0.1:{args.port}/artifacts',
                                                         'credentials_file':str(root/'credentials.json')}}}
     (root/'pulse-config-fragment.json').write_text(json.dumps(fragment,indent=2)+'\n')
     (root/'pulse-storage.service').write_text(f'''[Unit]

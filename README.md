@@ -143,3 +143,5 @@ For security reports, see [SECURITY.md](SECURITY.md).
 ## Private agent network (opt-in preview)
 
 Connect multiple agents per device, queue requests while devices are offline, and exchange approved files through private Copyparty storage on your VPS. Includes an Agents screen, outbound Linux file connector, CLI and MCP tools. Separately owner-enabled [task workers](docs/task-workers.md) can invoke installed agent runtimes and return their feedback. See [setup, permissions and limits](docs/agent-network.md).
+
+Shared workspace: exchange temporary files across enrolled PC, VPS and Cloud agents, with configurable capacity (default 1 GiB) and 24-hour expiry. Enable and manage it from **Agents → Shared workspace**; see [agent-network documentation](docs/agent-network.md#shared-workspace).

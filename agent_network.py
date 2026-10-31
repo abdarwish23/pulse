@@ -12,7 +12,6 @@ from network_storage import WebDAVStorage, StorageError
 
 KINDS = ('message', 'file.list', 'file.read')
 MAX_FILE = 32 * 1024 * 1024
-MAX_STORAGE = 256 * 1024 * 1024
 LEASE_SECONDS = 300
 PRESENCE_SECONDS = 90
 ID = re.compile(r'^[a-z0-9][a-z0-9_.-]{0,47}$')
@@ -111,6 +110,9 @@ def migrate(con):
         COMMIT;
         """)
 
+    import shared_workspace
+    shared_workspace.migrate(con)
+
 
 def device_kind(device):
     return next((kind for kind in ('pc', 'vps', 'cloud')
@@ -172,6 +174,8 @@ def revoke(con, aid):
     con.execute('DELETE FROM network_sessions WHERE agent=?', (aid,))
     con.execute("UPDATE network_requests SET status='cancelled',lease='' WHERE (sender=? OR recipient=?) AND status IN ('queued','leased','interrupted')", (aid, aid))
     delete_artifacts(con, 'request_id IN (SELECT id FROM network_requests WHERE sender=? OR recipient=?)', (aid, aid))
+    import shared_workspace
+    shared_workspace.delete(con, 'creator=?', (aid,))
     audit(con, 'owner', 'revoke-agent', aid)
     return {'ok': True}
 
@@ -182,7 +186,9 @@ def delete_artifacts(con, where, args=()):
 
 
 def cleanup(con):
+    import shared_workspace
     t = stamp()
+    shared_workspace.delete(con, 'expires_at<=?', (t,))
     delete_artifacts(con, 'expires_at>0 AND expires_at<=?', (t,))
     con.execute("UPDATE network_requests SET status='expired',lease='' WHERE status IN ('queued','leased','interrupted') AND expires_at<=?", (t,))
     con.execute("UPDATE network_requests SET status=CASE WHEN kind='message' THEN 'interrupted' WHEN attempts>=5 THEN 'failed' ELSE 'queued' END,lease='' WHERE status='leased' AND lease_until<=?", (t,))
@@ -430,8 +436,9 @@ def dispatch(con, h, method, parts, actor, owner, body, upload, downloaded, arti
                 require(row['kind']=='file.read', 'file.read request required')
                 digest = hashlib.sha256(upload).hexdigest()
                 require(h.headers.get('X-Content-SHA256')==digest, 'checksum mismatch')
-                used = con.execute('SELECT COALESCE(SUM(size),0) FROM network_artifacts').fetchone()[0]
-                require(used+len(upload)<=MAX_STORAGE, 'artifact storage quota exceeded', 429)
+                import shared_workspace
+                used = shared_workspace.used(con)
+                require(used+len(upload)<=shared_workspace.quota(con), 'artifact storage quota exceeded', 429)
                 key = row['id'] + '-' + digest
                 con.execute('INSERT INTO network_artifacts VALUES(?,?,?,?,?)', (row['id'],digest,len(upload),stamp()+artifact_ttl if artifact_ttl else 0,key))
                 con.execute('DELETE FROM network_storage_gc WHERE object_key=?', (key,))
@@ -478,7 +485,7 @@ def handle(h, method, path, server):
     if not NETWORK_SLOTS.acquire(blocking=False):
         h.close_connection = True
         return h.send_json(503, {"error":"network busy; retry later"})
-    transfer=path.endswith('/artifact') or '/network/artifacts/' in path
+    transfer=path.endswith('/artifact') or '/network/artifacts/' in path or '/workspace/files/' in path
     acquired=not transfer or TRANSFER_SLOTS.acquire(blocking=False)
     try:
         if not acquired:
@@ -514,6 +521,9 @@ def _handle(h, method, path, server):
             allowed={server.CONFIG.get('public_url','').rstrip('/'), 'http://'+h.headers.get('Host',''), 'https://'+h.headers.get('Host','')}
             require(not origin or origin in allowed, 'cross-origin mutation rejected', 403)
         parts=path.split('/')[3:]
+        if parts and parts[0]=='workspace':
+            import shared_workspace
+            return shared_workspace.handle(h,method,path,server,actor,owner,None if owner else digest)
         if method=='GET' and len(parts)==2 and parts[0]=='artifacts':
             parts=['requests',parts[1],'artifact']
         is_upload=method=='POST' and len(parts)==3 and parts[0]=='requests' and parts[2]=='artifact'
@@ -573,8 +583,9 @@ def _handle(h, method, path, server):
                         require(existing and existing[0]==hashlib.sha256(upload).hexdigest(),'different or expired artifact',409)
                     else:
                         check_lease(con,row,actor,h.headers.get('X-Pulse-Session'),h.headers.get('X-Pulse-Lease'))
-                        used=con.execute('SELECT COALESCE(SUM(size),0) FROM network_artifacts').fetchone()[0]
-                        require(used+len(upload)<=MAX_STORAGE,'artifact storage quota exceeded',429)
+                        import shared_workspace
+                        used=shared_workspace.used(con)
+                        require(used+len(upload)<=shared_workspace.quota(con),'artifact storage quota exceeded',429)
                     con.execute('INSERT INTO network_storage_gc VALUES(?,?) ON CONFLICT(object_key) DO UPDATE SET not_before=excluded.not_before',(key,stamp()+3600))
                 WebDAVStorage(storage_config).put(key,upload)
             with closing(server.db()) as con, con:
@@ -618,7 +629,7 @@ def maintain(server):
             for r in keys:
                 key=r['object_key']
                 with closing(server.db()) as con:
-                    referenced=con.execute('SELECT 1 FROM network_artifacts WHERE object_key=?',(key,)).fetchone()
+                    referenced=con.execute('SELECT 1 FROM network_artifacts WHERE object_key=? UNION ALL SELECT 1 FROM workspace_files WHERE object_key=?',(key,key)).fetchone()
                 if not referenced:
                     storage.delete(key)
                 with closing(server.db()) as con, con:

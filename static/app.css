@@ -402,3 +402,26 @@ label.ck input{width:auto}
   .net-session-title time{font-size:12px}.net-participants{font-size:13px}
   .net-preview,.net-sender{font-size:14px}.net-message-body{font-size:15px}
 }
+
+/* Logos are identity marks; presence remains a separate, labelled status. */
+.net-avatar.brand{background:#fff;border:1px solid #e4dfe2}
+.net-avatar.brand img{width:72%;height:72%;object-fit:contain}
+.net-avatar.brand.pi img{width:100%;height:100%}
+.net-storage-summary{display:flex;justify-content:space-between;gap:8px 20px;flex-wrap:wrap;font-size:13px;padding:10px 0 16px}
+.net-storage-access{display:block;color:var(--mut);font-size:11px;margin-top:3px;font-weight:400}
+.net-storage-meter{display:grid;gap:10px;margin:20px 0}
+.net-storage-meter progress{width:100%;height:10px;accent-color:var(--accent)}
+.net-workspace-files article{padding:14px 0;border-top:1px solid var(--border);overflow-wrap:anywhere}
+.net-workspace-files small{display:block;margin:6px 0 10px;color:var(--mut)}
+.net-dialog details{margin:16px 0}.net-dialog input[type=file]{max-width:100%}
+@media(max-width:600px){.net-heading{align-items:flex-start;gap:12px;flex-direction:column}.net-actions{flex-wrap:wrap}.net-storage-summary{font-size:12px}.net-storage-access{font-size:11px}}
+
+@media(min-width:901px){
+  .net-heading{padding-right:0;min-height:65px;margin-bottom:0}
+  .net-heading .net-actions{position:static}
+  .net-toolbar{position:static;margin:0 0 14px}
+  .net-toolbar .net-search{width:360px}
+  .net-workspace{height:calc(100dvh - 300px)}
+}
+.net-storage-meter progress{accent-color:var(--acc)}
+.net-workspace-files article{border-color:var(--line)}

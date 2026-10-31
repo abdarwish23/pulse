@@ -43,7 +43,11 @@ def snapshot(storage_root, destination, token_directory=None, keep=7):
         # snapshot are copied, avoiding unrelated files and excess storage.
         with storage_guard(server):
             db = backup_database(server.DB_PATH, pending)
-            with sqlite3.connect(db.as_uri() + '?mode=ro', uri=True) as con:
+            with sqlite3.connect(db) as con:
+                # Temporary bytes must not outlive their 24-hour policy in backups.
+                con.execute('DELETE FROM workspace_files')
+                con.execute('DELETE FROM network_artifacts WHERE expires_at>0')
+                con.execute('DELETE FROM network_storage_gc')
                 rows = con.execute('SELECT object_key,size,sha256 FROM network_artifacts').fetchall()
             if shutil.disk_usage(destination).free < sum(row[1] for row in rows) + 2 * 1024**3:
                 raise ValueError('insufficient free space for artifact snapshot')

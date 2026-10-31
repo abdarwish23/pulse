@@ -3,6 +3,8 @@ const networkView = {data: null, query: '', agent: '', request: '', pane: 'agent
 const networkTypes = {pc: 'PC', vps: 'VPS', cloud: 'Cloud', other: 'Other'};
 const networkIcons = {pc: 'pc-display', vps: 'hdd-network', cloud: 'cloud', other: 'hdd-network'};
 const ni = name => `<img class="net-icon" src="/vendor/bootstrap-icons/${name}.svg" alt="" width="18" height="18">`;
+const networkLogos = {claude:'claude.svg',codex:'codex.svg',pi:'pi.svg',opencode:'opencode.png'};
+const networkBytes = n => n >= 1024**3 ? `${+(n/1024**3).toFixed(2)} GiB` : n >= 1024**2 ? `${+(n/1024**2).toFixed(2)} MiB` : `${+(n/1024).toFixed(1)} KiB`;
 const networkStatus = {queued: 'Queued', leased: 'Running', completed: 'Completed', failed: 'Failed', expired: 'Expired', interrupted: 'Needs attention', cancelled: 'Cancelled'};
 function networkName(a) {
   if (!a) return 'Unknown agent';
@@ -25,7 +27,8 @@ function networkPresence(a) {
 }
 function networkAvatar(a) {
   const name = a?.id.split('/').pop() || '';
-  return `<span class="net-avatar ${['codex','claude','pi','opencode'].includes(name) ? name : 'other'}" aria-hidden="true">${esc(networkName(a).slice(0,1).toUpperCase())}</span>`;
+  const logo = networkLogos[name];
+  return `<span class="net-avatar ${logo ? 'brand '+name : 'other'}" aria-hidden="true">${logo ? `<img src="/vendor/agent-logos/${logo}" alt="" width="28" height="28">` : ni('person')}</span>`;
 }
 function networkBadge(r) { return `<span class="net-badge ${esc(r.status)}">${esc(networkStatus[r.status] || r.status)}</span>`; }
 function networkParticipants(r) {
@@ -67,16 +70,16 @@ async function renderNetwork() {
   if (previousRequest !== networkView.request) networkView.scroll.netConversation = 0;
   if (previousAgent !== networkView.agent) networkView.scroll.netSessions = 0;
   try {
-    const [agents, devices, requests, grants, artifacts] = await Promise.all([
+    const [agents, devices, requests, grants, artifacts, workspace] = await Promise.all([
       api('GET','/network/agents'), api('GET','/network/devices'), api('GET','/network/requests'),
-      api('GET','/network/grants'), api('GET','/network/artifacts')]);
+      api('GET','/network/grants'), api('GET','/network/artifacts'), api('GET','/network/workspace')]);
     // A selected old session can be outside the newest 200 requests.
     if (networkView.request && !requests.some(r => r.id === networkView.request)) {
       try { requests.push(await api('GET','/network/requests/'+encodeURIComponent(networkView.request))); }
       catch (_) { /* Render a clear missing/retained-out session state. */ }
     }
     if (generation !== networkView.generation || !location.hash.startsWith('#/agents') || loginShown) return;
-    networkView.data = {agents,devices,requests,grants,artifacts}; networkView.stale = false;
+    networkView.data = {agents,devices,requests,grants,artifacts,workspace}; networkView.stale = false;
   } catch (error) {
     if (generation !== networkView.generation || !location.hash.startsWith('#/agents') || loginShown) return;
     if (error.message === 'agent network is disabled') {
@@ -94,7 +97,8 @@ async function renderNetwork() {
   const deviceCount = devices.filter(d => active.some(a => a.device === d.id)).length;
   $('#app').innerHTML = `<div class="net-page" data-pane="${networkView.pane}">
     <div class="net-heading"><div><h1 id="networkHeading">Agents</h1><p class="mut">${deviceCount} devices · ${active.length} agents <span class="net-live">· Updates every 30s</span></p></div>
-      <div class="net-actions"><button id="networkRefresh" title="Refresh agent status">Refresh</button><button id="networkSettings">Settings</button></div></div>
+      <div class="net-actions"><button id="networkRefresh" title="Refresh agent status">Refresh</button><button id="networkSharedWorkspace">Shared workspace</button><button id="networkSettings">Settings</button></div></div>
+    <div class="net-storage-summary"><span><b>Shared workspace</b> · ${networkView.data.workspace.enabled ? `${networkBytes(networkView.data.workspace.used_bytes)} of ${networkBytes(networkView.data.workspace.quota_bytes)} · ${networkView.data.workspace.members.length} agents have access` : 'Not enabled'}</span><span class="mut">Files expire after 24 hours</span></div>
     ${networkView.stale ? '<p class="net-warning" role="alert">Connection lost. Status is unavailable; messages below are from the last successful refresh.</p>' : ''}
     <div class="net-toolbar"><label class="net-search">${ni('search')}<span class="sr-only">Search agents, devices or sessions</span><input id="networkSearch" type="search" placeholder="Search agents or sessions…" value="${esc(networkView.query)}"></label>
     <div class="net-mobile-tabs" aria-label="Agent views"><button data-pane="agents" class="${networkView.pane==='agents'?'on':''}">Agents</button><button data-pane="sessions" class="${networkView.pane!=='agents'?'on':''}">Sessions</button></div></div>
@@ -109,6 +113,7 @@ async function renderNetwork() {
   }
   if (matchMedia('(max-width: 900px)').matches) scrollTo(0, networkView.pageScroll[networkView.pane] || 0);
   $('#networkRefresh').onclick = renderNetwork;
+  $('#networkSharedWorkspace').onclick = networkSharedWorkspace;
   $('#networkSettings').onclick = () => networkSettings();
   $('#networkSearch').oninput = e => { networkView.query = e.target.value; networkPaint(); };
   $$('.net-mobile-tabs [data-pane]').forEach(b => b.onclick = () => networkGo(b.dataset.pane));
@@ -127,7 +132,7 @@ function networkPaint(remember = true) {
     if (!rows.length) return '';
     const collapsed = networkView.collapsed.has(d.id) && !query;
     return `<section class="net-device"><div class="net-device-head"><button class="net-device-toggle" data-device-toggle="${esc(d.id)}" aria-expanded="${!collapsed}">${ni(networkIcons[d.kind] || 'hdd-network')}<span><b>${esc(d.label)}</b><small>${esc(networkTypes[d.kind] || 'Other')} · ${rows.length} ${rows.length===1?'agent':'agents'}</small></span>${ni('chevron-down')}</button><button class="net-icon-button" data-edit-device="${esc(d.id)}" aria-label="Edit ${esc(d.label)}">${ni('pencil')}</button></div>
-      ${collapsed ? '' : rows.map(a => `<button class="net-agent ${a.id===networkView.agent?'selected':''}" data-agent="${esc(a.id)}" aria-pressed="${a.id===networkView.agent}">${networkAvatar(a)}<span class="net-agent-copy"><b>${esc(networkName(a))}</b><span class="net-agent-status">${networkPresence(a)}</span></span>${ni('chevron-right')}</button>`).join('')}</section>`;
+      ${collapsed ? '' : rows.map(a => `<button class="net-agent ${a.id===networkView.agent?'selected':''}" data-agent="${esc(a.id)}" aria-pressed="${a.id===networkView.agent}">${networkAvatar(a)}<span class="net-agent-copy"><b>${esc(networkName(a))}</b><span class="net-agent-status">${networkPresence(a)}</span><small class="net-storage-access">${networkView.stale ? 'Workspace access unavailable' : networkView.data.workspace.members.includes(a.id) ? 'Shared workspace access' : 'No workspace access'}</small></span>${ni('chevron-right')}</button>`).join('')}</section>`;
   }).join('');
   $('#networkWorkspace').innerHTML = `<section class="net-directory net-column" aria-label="Agents by device"><div class="net-column-head"><h2>Devices</h2><button id="networkAll" class="net-text-button">All agents</button></div><div class="net-scroll" id="netDirectory">${directory || `<div class="net-empty"><h3>${active.length ? 'No matching agents' : 'No agents enrolled'}</h3><p>${active.length ? 'Try another name or device.' : 'Enroll a device to see its agents here. PC, VPS and Cloud devices can each have their own name.'}</p></div>`}</div></section>
     <section class="net-sessions net-column" aria-label="Sessions"><div class="net-column-head"><div><h2 id="networkSessionHeading">Sessions <span class="mut">(${matching.length})</span></h2>${selectedAgent?`<p class="mut sm">${esc(networkName(selectedAgent))} <button id="networkAgentDetails" class="net-text-button">Details</button><button id="networkClearAgent" class="net-text-button">All agents</button></p>`:''}</div><button id="networkBackAgents" class="net-mobile-back">${ni('chevron-left')} Agents</button></div><div class="net-scroll" id="netSessions">${matching.map(r=>`<button class="net-session ${selected?.id===r.id?'selected':''}" data-request="${esc(r.id)}" aria-pressed="${selected?.id===r.id}"><span class="net-session-title"><b>${esc(networkTitle(r))}</b><time title="${esc(when(r.updated_at || r.created_at))}">${esc(ago(r.updated_at || r.created_at))}</time></span><span class="net-participants">${esc(networkParticipants(r))}</span><span class="net-preview">${esc(networkPreview(r))}</span>${networkBadge(r)}</button>`).join('') || '<div class="net-empty"><h3>No sessions found</h3><p>Agent requests and replies will appear here. Try All agents or clear your search.</p></div>'}</div><p class="net-footnote">Latest 200 requests. Each task and reply stays together.</p></section>
@@ -207,4 +212,38 @@ function networkSettings(tab='permissions') {
   $$('[data-manage-agent]',dialog).forEach(b=>b.onclick=()=>networkAgentDetails(agents.find(a=>a.id===b.dataset.manageAgent)));
   $$('[data-ungrant]',dialog).forEach(b=>b.onclick=async()=>{if(confirm('Remove this permission? Pending requests and shared artifacts may be withdrawn.')){try{await api('DELETE','/network/grants',grants[+b.dataset.ungrant]);await renderNetwork();networkSettings();}catch(e){toast(e.message);}}});
   const form=$('#networkGrant'); if(form){form.elements.kind.onchange=()=>{form.elements.share.disabled=form.elements.kind.value==='message';form.elements.share.required=!form.elements.share.disabled;};form.onsubmit=e=>networkSave(e,dialog,'/network/grants',Object.fromEntries(new FormData(form)));}
+}
+
+async function networkSharedWorkspace() {
+  try {
+    const w=await api('GET','/network/workspace');
+    const files=w.enabled ? await api('GET','/network/workspace/files') : [];
+    const dialog=networkDialog('Shared workspace',`<p>One temporary file space for all enrolled agents, across every device. Files expire 24 hours after upload.</p>
+      <div class="net-storage-meter"><strong>${networkBytes(w.used_bytes)} used of ${networkBytes(w.quota_bytes)}</strong><progress max="${w.quota_bytes}" value="${w.used_bytes}" aria-label="Shared workspace capacity"></progress></div>
+      <details><summary>Capacity and access settings</summary><form id="workspaceSettings" class="form"><label class="f">Capacity (GiB)<input name="capacity" type="number" min="0.001" max="1024" step="0.001" value="${+(w.quota_bytes/1024**3).toFixed(3)}" required></label><label><input name="enabled" type="checkbox" ${w.enabled?'checked':''}> Allow all enrolled agents to use this workspace</label><p class="mut sm">Includes agents enrolled later. Offline agents keep access. 1 GiB = 1,073,741,824 bytes. Capacity cannot be lower than current usage.</p><button class="pri">Save settings</button></form></details>
+      <p role="alert" id="workspaceError" class="err" hidden></p>
+      <details><summary>${w.members.length} agents have access</summary><ul>${w.members.map(id=>`<li>${esc(networkName(networkView.data.agents.find(a=>a.id===id)))} <span class="mut">${esc(id)}</span></li>`).join('')}</ul></details>
+      ${w.enabled?`<form id="workspaceUpload" class="form"><h3>Upload a file</h3><label class="f">File (up to 32 MiB)<input name="file" type="file" required></label><label class="f">Workspace path<input name="path" placeholder="project/report.pdf" maxlength="1024" required></label><p class="mut sm">Folders are created from the path. Existing files are never overwritten.</p><button class="pri">Upload</button></form><h3>Files (${files.length})</h3><div class="net-workspace-files">${files.map(f=>`<article><b>${esc(f.path)}</b><small>${networkBytes(f.size)} · ${esc(f.creator)} · Expires ${esc(when(f.expires_at))}</small><div class="row"><a class="btn" href="/api/network/workspace/files/${f.id}" download>Download</a><button data-delete-workspace="${f.id}">Delete</button></div></article>`).join('')||'<p class="mut">No files yet. Upload here or use an agent’s shared workspace tools.</p>'}</div>`:'<p class="mut">Enable the workspace in Capacity and access settings to share files.</p>'}`);
+    const error=e=>{const el=$('#workspaceError',dialog);el.textContent=e.message;el.hidden=false;};
+    $('#workspaceSettings',dialog).onsubmit=async e=>{
+      e.preventDefault();const form=e.target,button=$('button',form);button.disabled=true;
+      try{await api('POST','/network/workspace',{quota_bytes:Math.round(Number(form.elements.capacity.value)*1024**3),enabled:form.elements.enabled.checked});await renderNetwork();await networkSharedWorkspace();}catch(e){error(e);}finally{button.disabled=false;}
+    };
+    const upload=$('#workspaceUpload',dialog);
+    if(upload){
+      upload.elements.file.onchange=()=>{if(!upload.elements.path.value)upload.elements.path.value=upload.elements.file.files[0]?.name||'';};
+      upload.onsubmit=async e=>{
+        e.preventDefault();const file=upload.elements.file.files[0],button=$('button',upload);button.disabled=true;
+        try{
+          if(file.size>w.max_file_bytes)throw new Error('File exceeds 32 MiB.');
+          const data=await file.arrayBuffer(),hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',data)),x=>x.toString(16).padStart(2,'0')).join('');
+          const id=crypto.randomUUID().replaceAll('-','');
+          const response=await fetch(`/api/network/workspace/files/${id}?path=${encodeURIComponent(upload.elements.path.value)}`,{method:'POST',headers:{'Content-Type':'application/octet-stream','X-Content-SHA256':hash},body:data});
+          const result=await response.json();if(!response.ok)throw new Error(result.error||'Upload failed');
+          await renderNetwork();await networkSharedWorkspace();
+        }catch(e){error(e);}finally{button.disabled=false;}
+      };
+    }
+    $$('[data-delete-workspace]',dialog).forEach(b=>b.onclick=async()=>{if(confirm('Delete this shared file for every agent?')){b.disabled=true;try{await api('DELETE','/network/workspace/files/'+b.dataset.deleteWorkspace,{});await renderNetwork();await networkSharedWorkspace();}catch(e){error(e);b.disabled=false;}}});
+  } catch(e) {toast(e.message);}
 }

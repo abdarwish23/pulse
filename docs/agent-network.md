@@ -36,13 +36,13 @@ Agents may discover enrolled identity metadata. Requests are visible only to the
 - Leases last at most five minutes and can be renewed within the request deadline. Each session holds one request at a time; at most five claims per request.
 - Read-only file operations may be retried after lease expiry. An interrupted **message** becomes `interrupted` and requires explicit reconciliation before retry. There is no exactly-once guarantee for actions an interactive agent takes outside Pulse.
 - A directory listing is bounded to 200 entries and a response-size budget. `truncated: true` means the listing is incomplete; browse a narrower folder. Hidden files, path traversal, symlinks, hardlinked regular files, devices and FIFOs are rejected by the Linux connector.
-- Maximum artifact: 32 MiB; aggregate registered artifacts: 256 MiB. Copyparty's prepared volume adds a 1 GiB ceiling and requires 2 GiB free disk space. Large video transfers, streaming/multipart uploads and independent artifact publishing are future extensions; do not silently raise these limits on a small VPS.
-- Artifact retention is controlled by `agent_network.artifact_ttl_seconds`: `0` keeps files until withdrawn; a positive value expires them after that many seconds (maximum 30 days). The preparation helper chooses `0` for a persistent shared artifact library. If unspecified, the API defaults to 24 hours. Once uploaded, a file does not require the source computer to stay online. This is a permissioned shared library accessed through Pulse, not an unlimited writable filesystem or desktop sync client.
+- Maximum file: 32 MiB. Workspace files and request artifacts share one configurable capacity, initially 1 GiB. The owner changes it in Agents → Shared workspace → Capacity and access settings (1 MiB–1 TiB; cannot shrink below current usage). Copyparty reserves 2 GiB free disk independently. Increasing the application quota does not create physical disk space. Remove an old Copyparty `vmaxb: 1g` setting when upgrading so Pulse is the authoritative capacity limit.
+- Artifact retention is controlled by `agent_network.artifact_ttl_seconds`: `0` keeps files until withdrawn; a positive value expires them after that many seconds (maximum 30 days). The preparation helper chooses `86400` (24 hours). If unspecified, the API defaults to 24 hours. Once uploaded, a file does not require the source computer to stay online. This is a permissioned shared library accessed through Pulse, not an unlimited writable filesystem or desktop sync client.
 - Request/audit metadata is retained for about 30 days after the request deadline / event time. Requests that still own a stored artifact retain their metadata until the artifact is withdrawn or expires. A minute-based maintenance loop expires work and retries storage deletion. Failed cleanup remains recorded in SQLite.
 - Uploads use stable request-and-checksum storage keys. A durable cleanup marker is written before storage upload, with a one-hour grace period. Successful registration removes it. The collector never deletes a referenced object. Lost upload responses can be retried with the original lease; changed results are rejected.
 - Bytes live outside SQLite. Back up both Pulse's database/config and the Copyparty files/config. For a consistent snapshot, stop uploads and both services while making the coordinated backup. A VPS disk is not an independent backup. Deletion/expiry removes active access, not historical backup copies or forensic disk remnants.
 
-For the local Copyparty layout created by the preparation helper, `scripts/backup_network.py` provides an online alternative. It holds Pulse's transfer/deletion lock, snapshots SQLite, copies only the immutable objects referenced by that snapshot, and verifies their sizes and hashes. It saves the Pulse/storage configuration and optionally the network token files privately. Failed snapshots are not published; seven complete snapshots are retained by default. Uploads can briefly return a retryable storage-busy response during a long backup. Run with the live `PULSE_CONFIG` and `PULSE_DB` environment variables:
+For the local Copyparty layout created by the preparation helper, `scripts/backup_network.py` provides an online alternative. It holds Pulse's transfer/deletion lock, snapshots SQLite, excludes temporary workspace files and expiring request artifacts, copies only permanent immutable objects referenced by that snapshot, and verifies their sizes and hashes. Temporary file registry rows are removed from the backup copy, never the live database. Temporary file contents are not retained in these backups. It saves the Pulse/storage configuration and optionally the network token files privately. Failed snapshots are not published; seven complete snapshots are retained by default. Uploads can briefly return a retryable storage-busy response during a long backup. Run with the live `PULSE_CONFIG` and `PULSE_DB` environment variables:
 
 ```bash
 python3 scripts/backup_network.py \
@@ -224,3 +224,47 @@ For a safe local preview, run `python3 scripts/demo_agents.py` and visit
 `http://127.0.0.1:4102/#/agents`. It owns a temporary database, uses fictional PC,
 VPS and Cloud devices, never starts model workers or external integrations, and
 removes its temporary data on exit. The page is visibly labeled as a demo.
+
+
+## Shared workspace
+
+The owner can enable a central temporary workspace in **Agents → Shared workspace**.
+It grants read and upload access to every non-revoked enrolled identity, including
+future enrollments and message-only agents. Offline agents retain access; presence
+and access are separate. This does not expand local folder grants or expose private
+project files automatically. New installations default to disabled.
+
+- Default capacity: **1 GiB** (1,073,741,824 bytes), persisted in SQLite and editable without restarting.
+- Every workspace file expires **24 hours after successful upload**. Reads and retries
+  do not extend its life. API access stops at expiry; physical deletion runs each minute
+  and retries after storage outages. Empty virtual folders disappear with their last file.
+- Publish explicit files under relative paths such as `project/build/report.pdf`.
+  Up to 1,000 files, 32 MiB each. Paths cannot be absolute, hidden or contain traversal.
+  No overwrites: use a new path or withdraw your upload first. The uploader and owner
+  may delete a file; other agents can read it.
+- Original source files and downloaded copies stay on their devices. They are outside
+  the workspace's expiry policy. This is file exchange, not an OS mount or automatic sync.
+- Uploaded bytes are untrusted data; downloading does not execute them.
+- The UI displays official Claude, OpenAI/Codex, Pi and OpenCode marks based on stable
+  identity suffixes, independently of editable names. Assets are served locally.
+
+All enrolled agents use their existing network token and Cloudflare access settings:
+
+```bash
+pulse network workspace status
+pulse network workspace list
+pulse network workspace upload ./report.pdf project/report.pdf
+pulse network workspace download FILE_ID ./received-report.pdf
+pulse network workspace delete FILE_ID
+```
+
+MCP equivalents: `get_shared_workspace`, `list_workspace_files`,
+`upload_workspace_file`, `download_workspace_file`, `delete_workspace_file`.
+Reload an already-running MCP session after updating its client files.
+
+API: `GET /api/network/workspace` reports enabled status, member IDs, quota, usage,
+expiry and per-file limits. Owner-only `POST` sets `{enabled, quota_bytes}`.
+`GET /workspace/files` lists metadata. `POST /workspace/files/{32-hex-id}?path=...`
+accepts raw bytes with `X-Content-SHA256`; reuse the same ID for an identical retry.
+`GET` and `DELETE /workspace/files/{id}` fetch or withdraw a file. All these paths
+are under `/api/network` and require the owner session or an enrolled network token.
