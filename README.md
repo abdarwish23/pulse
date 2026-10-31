@@ -36,6 +36,7 @@ Pulse is deliberately **simple**:
 | **Inbox** | Every notification Pulse sent: reminders, cards moved to Done or Blocked, messages from agents. |
 | **Memory** | Long-term facts your agents remember about people, projects and preferences. You can see and edit all of it. |
 | **Privacy** | Mark any note, todo or reminder as *private*: you still see it, agents never do. |
+| **Agents** | Named PC, VPS and Cloud devices; online/offline presence, working status and readable task sessions. Three columns on desktop, separate views on phones. Requires the opt-in agent network. |
 | **Appearance** | Light and dark themes with red Pulse branding. Follow your device setting or choose a theme that is remembered in your browser. |
 
 <table><tr>

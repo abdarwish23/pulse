@@ -56,7 +56,7 @@ def relative_path(value, directory=False):
     return value
 
 
-def migrate(con):
+def migrate_v7(con):
     if con.execute('PRAGMA user_version').fetchone()[0] >= 7:
         return
     con.executescript('''
@@ -93,6 +93,36 @@ def migrate(con):
     ''')
 
 
+def migrate(con):
+    migrate_v7(con)
+    if con.execute('PRAGMA user_version').fetchone()[0] < 8:
+        con.executescript("""
+        BEGIN IMMEDIATE;
+        CREATE TABLE network_devices(
+          id TEXT PRIMARY KEY, label TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'other');
+        INSERT INTO network_devices(id,label,kind)
+          SELECT DISTINCT device,device,CASE
+            WHEN device='pc' OR device LIKE 'pc-%' THEN 'pc'
+            WHEN device='vps' OR device LIKE 'vps-%' THEN 'vps'
+            WHEN device='cloud' OR device LIKE 'cloud-%' THEN 'cloud'
+            ELSE 'other' END FROM network_agents;
+        CREATE INDEX network_audit_target ON network_audit(target,ts);
+        PRAGMA user_version=8;
+        COMMIT;
+        """)
+
+
+def device_kind(device):
+    return next((kind for kind in ('pc', 'vps', 'cloud')
+                 if device == kind or device.startswith(kind + '-')), 'other')
+
+
+def display_name(value):
+    value = text(text(value, 'display name', 100).strip(), 'display name', 100)
+    require(not any(127 <= ord(c) <= 159 for c in value), 'invalid display name')
+    return value
+
+
 def audit(con, actor, action, target):
     con.execute('INSERT INTO network_audit(ts,actor,action,target) VALUES(?,?,?,?)', (stamp(), actor, action, target))
 
@@ -109,6 +139,8 @@ def enroll(con, body):
     token = 'pn_' + secrets.token_urlsafe(32)
     con.execute('INSERT INTO network_agents(id,device,label,token_hash,capabilities,created_at) VALUES(?,?,?,?,?,?)',
                 (aid, device, label, hashlib.sha256(token.encode()).hexdigest(), json.dumps(sorted(set(caps))), stamp()))
+    con.execute('INSERT OR IGNORE INTO network_devices(id,label,kind) VALUES(?,?,?)',
+                (device, device, device_kind(device)))
     audit(con, 'owner', 'enroll', aid)
     return {'id': aid, 'token': token}
 
@@ -172,6 +204,12 @@ def request_out(con, row):
     result['result'] = json.loads(row['result']) if row['result'] else None
     a = con.execute('SELECT sha256,size,expires_at FROM network_artifacts WHERE request_id=?', (row['id'],)).fetchone()
     result['artifact'] = dict(a) if a else None
+    times = con.execute('''SELECT MAX(ts) AS updated_at,
+      MAX(CASE WHEN action='claim' THEN ts END) AS started_at,
+      MAX(CASE WHEN action IN ('complete','failed') THEN ts END) AS finished_at
+      FROM network_audit WHERE target=?''', (row['id'],)).fetchone()
+    result.update(dict(times))
+    result['updated_at'] = max(result['updated_at'] or 0, row['created_at'])
     return result
 
 
@@ -272,6 +310,26 @@ def dispatch(con, h, method, parts, actor, owner, body, upload, downloaded, arti
                               'size':row['size'],'sha256':row['sha256'],'expires_at':row['artifact_expires_at']})
                 if len(items)>=200:break
         return items
+    if parts == ['devices'] and method == 'GET':
+        return [dict(r) for r in con.execute('SELECT id,label,kind FROM network_devices ORDER BY label,id')]
+    if len(parts) == 2 and parts[0] == 'devices' and method == 'POST':
+        require(owner, 'owner only', 403)
+        device = identifier(parts[1])
+        require(con.execute('SELECT 1 FROM network_devices WHERE id=?', (device,)).fetchone(), 'device not found', 404)
+        label = display_name(body.get('label'))
+        kind = body.get('kind')
+        require(kind in ('pc', 'vps', 'cloud', 'other'), 'invalid device type')
+        con.execute('UPDATE network_devices SET label=?,kind=? WHERE id=?', (label, kind, device))
+        audit(con, actor, 'rename-device', device)
+        return {'id': device, 'label': label, 'kind': kind}
+    if parts == ['agents', 'label'] and method == 'POST':
+        require(owner, 'owner only', 403)
+        aid = text(body.get('agent'), 'agent', 100)
+        require(con.execute('SELECT 1 FROM network_agents WHERE id=?', (aid,)).fetchone(), 'agent not found', 404)
+        label = display_name(body.get('label'))
+        con.execute('UPDATE network_agents SET label=? WHERE id=?', (label, aid))
+        audit(con, actor, 'rename-agent', aid)
+        return {'id': aid, 'label': label}
     if parts == ['agents'] and method == 'GET':
         agents = []
         for r in con.execute('SELECT id,device,label,capabilities,revoked FROM network_agents ORDER BY device,id'):
@@ -283,7 +341,18 @@ def dispatch(con, h, method, parts, actor, owner, body, upload, downloaded, arti
                 if s['last_seen'] <= stamp()-PRESENCE_SECONDS:
                     s['state'] = 'offline'
             item['sessions'] = sessions
-            item['status'] = 'revoked' if r['revoked'] else 'ready' if any(s['state']=='ready' for s in sessions) else 'busy' if any(s['state']=='busy' for s in sessions) else 'offline'
+            live = [s for s in sessions if s['state'] != 'offline']
+            leased = con.execute("SELECT session FROM network_requests WHERE recipient=? AND status='leased' AND lease_until>?",
+                                 (r['id'], stamp())).fetchall()
+            working = any(s['state'] == 'busy' for s in live) or any(
+                row['session'] == s['id'] for row in leased for s in live)
+            item['status'] = 'revoked' if r['revoked'] else 'busy' if working else 'ready' if live else 'offline'
+            item['last_seen'] = max((s['last_seen'] for s in sessions), default=None)
+            live_caps = {cap for s in live for cap in s['capabilities']}
+            item['activity'] = ('working' if working else 'idle' if 'message' in live_caps
+                                else 'files-only' if live_caps else 'connected') if live else 'offline'
+            if r['revoked']:
+                item['activity'] = 'revoked'
             agents.append(item)
         return agents
     if parts == ['agents'] and method == 'POST':
