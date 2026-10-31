@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a Buy Me a Coffee support link and GitHub Sponsor button for Pulse.
 - Apply the selected red gradient, curved two-node Pulse identity to the app header, sign-in screen and favicon.
 - Add light, dark and system appearance choices with saved browser preferences, cross-tab updates and accessible theme colors.
 - Refresh repository screenshots from an isolated fictional demo workspace in both themes; add a repeatable browser capture and verification script that cannot target a live instance.
