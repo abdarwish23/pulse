@@ -12,6 +12,16 @@ adaptation for the favicon and installed app. The CSS crops transparent padding
 and recolors only a clipped copy of the wordmark for dark mode; the pulse keeps
 its original red colors. No external font or asset service is required.
 
+## Project cover
+
+[`brand/pulse-project-cover.png`](brand/pulse-project-cover.png) is the approved
+1672 × 941 presentation image used in the README and the maintainer's portfolio.
+It was composed with the built-in image generator using the existing logo and
+symbol, the warm light theme, and the public fictional-data desktop board and
+mobile Today screenshots. It is a product presentation mockup; the unaltered
+screenshots remain in [`screenshots/`](screenshots/). The cover does not replace
+the production logo assets or contain live workspace data.
+
 ## Themes
 
 Choose **System**, **Light** or **Dark** in the header, including before sign-in.

@@ -7,7 +7,7 @@
 Python standard library · No core dependencies · SQLite · Works on phone, tablet and desktop · MCP server for agents
 </p>
 
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/today-dark.png"><img src="docs/screenshots/today-light.png" alt="Pulse Today screen with fictional demo data" width="900"></picture></p>
+<p align="center"><img src="docs/brand/pulse-project-cover.png" alt="Pulse: a shared home for people and AI agents, presented with its red logo and desktop project board and mobile Today demo screens" width="1200"></p>
 
 Every screenshot below uses an isolated **fictional demo workspace**. Project names,
 tasks, notes, reminders and memory are sample content, never the maintainer's personal data.
