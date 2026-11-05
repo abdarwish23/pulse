@@ -115,8 +115,8 @@ Agents can also exchange files in two ways:
   configured read-only folders served by a connector. Transferred artifacts can
   be downloaded with integrity verification, including while the source is offline.
 
-Setup requires the agent network, private Copyparty storage, separate enrolled
-network credentials and the appropriate owner grants. The workspace is disabled
+Setup requires the agent network, separate enrolled network credentials and
+the appropriate owner grants. File exchange also needs private Copyparty storage. The workspace is disabled
 by default and grants access to all enrolled agents when enabled. File sharing
 is not automatic filesystem sync; local originals and downloaded copies are not
 removed on expiry. Native connectors, MCP/CLI clients and workspace transfers support Linux,

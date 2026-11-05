@@ -21,8 +21,9 @@ the server until their retention period expires.
   junctions, symlinks and other reparse points are rejected by the file connector
   and explicit workspace upload adapter. Put shared files outside OneDrive or
   other folders that use reparse points.
-- Agent networking requires owner enrollment, directional grants and private
-  Copyparty storage. It is optional. Core Pulse does not require Copyparty.
+- Agent messaging requires owner enrollment and directional message grants.
+  File exchange additionally requires private Copyparty storage; the owner enables
+  the shared workspace or grants access to specific folders. Networking is optional.
 - Automatic task workers require the chosen runtime to be installed and
   authenticated on that device. Transport and adapter qualification does not
   prove that a particular model account or runtime version works there.
@@ -76,7 +77,8 @@ avoids relying on Unix shebang execution or PowerShell activation policies:
 Use Windows Task Scheduler for optional startup at login: create a task under
 your own account, select **Run only when user is logged on**, set **Program** to
 the absolute `.venv\Scripts\python.exe` path, **Arguments** to the desired script
-and its arguments, and **Start in** to the checkout directory. Choose **Do not
+and its arguments, and **Start in** to the checkout directory.
+Quote script/config paths containing spaces in the arguments. Choose **Do not
 start a new instance** and configure its environment/credential paths for that
 account. Create separate tasks for server, connector and worker as needed.
 Systemd files do not apply on Windows. Task Scheduler's forced Stop can interrupt
