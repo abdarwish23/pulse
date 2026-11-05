@@ -171,7 +171,9 @@ The rules that keep Pulse simple: a standard-library core, no build step, one da
 
 ## Support Pulse
 
-If Pulse helps you keep your projects and agents organized, you can [buy me a coffee](https://buymeacoffee.com/abdarwish) to support its development.
+If Pulse helps you keep your projects and agents organized, you can [buy me a coffee ☕](https://buymeacoffee.com/abdarwish) to support its development.
+
+<a href="https://buymeacoffee.com/abdarwish"><img src="docs/brand/buy-me-a-coffee.svg" alt="Buy Me a Coffee ☕" height="48"></a>
 
 ## Contributing
 

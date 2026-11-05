@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add a Buy Me a Coffee ☕ support button with its logo to the README.
 - Add native Windows and macOS platform support and a manual qualification matrix
   for Python 3.10, 3.12 and 3.13, including real Copyparty transfers on each OS.
 - Use native Windows file locks, guarded file handles and task job objects; keep
