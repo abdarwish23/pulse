@@ -75,7 +75,7 @@ def main(argv=None):
             c.call('POST','/heartbeat',{'session_id':a.session,'capabilities':['message']})
             out=c.call('POST','/claim',{'session_id':a.session})
         elif a.cmd=='reply':
-            lease=Path(a.lease_file).read_text().strip()
+            lease=Path(a.lease_file).read_text(encoding="utf-8").strip()
             out=c.call('POST','/requests/'+a.id+'/complete',{'session_id':a.session,'lease':lease,'result':{'message':a.text}})
     print(json.dumps(out,indent=2))
 

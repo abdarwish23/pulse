@@ -237,6 +237,18 @@ class CloudflareServiceTokenTests(unittest.TestCase):
 
 
 class McpTests(unittest.TestCase):
+    def test_mcp_utf8_stdio(self):
+        request = {'jsonrpc': '2.0', 'id': 1, 'method': 'tools/call',
+                   'params': {'name': 'add_note', 'arguments': {'title': '日本語', 'body': 'مرحبا'}}}
+        result = subprocess.run([sys.executable, str(ROOT / 'pulse_mcp.py')],
+                                input=json.dumps(request, ensure_ascii=False)+'\n',
+                                capture_output=True, text=True, encoding='utf-8', check=True,
+                                env={**os.environ, 'PULSE_URL': BASE, 'PULSE_TOKEN': TOKEN})
+        output = json.loads(result.stdout)['result']
+        self.assertFalse(output.get('isError'), output)
+        note = json.loads(output['content'][0]['text'])
+        self.assertEqual((note['title'], note['body']), ('日本語', 'مرحبا'))
+
     def test_mcp_server(self):
         env = {**os.environ, "PULSE_URL": BASE, "PULSE_TOKEN": TOKEN}
         p = subprocess.Popen([sys.executable, str(ROOT / "pulse_mcp.py"), "--agent", "tester"], env=env,

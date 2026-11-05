@@ -152,7 +152,7 @@ class Worker:
             self.lock.close()
             raise
         self.pending_file = self.root / 'pending.json'
-        self.pending = json.loads(self.pending_file.read_text()) if self.pending_file.exists() else None
+        self.pending = json.loads(self.pending_file.read_text(encoding="utf-8")) if self.pending_file.exists() else None
         self.session = self.pending['session_id'] if self.pending else secrets.token_hex(16)
         self.secrets = [self.client.token]
         self.secrets += [v for k, v in os.environ.items() if any(s in k.upper() for s in ('TOKEN', 'SECRET', 'API_KEY'))]
@@ -377,7 +377,7 @@ def main():
     ap.add_argument('--once', action='store_true')
     a = ap.parse_args()
     os.umask(0o077)
-    cfg = json.loads(Path(a.config).expanduser().read_text())
+    cfg = json.loads(Path(a.config).expanduser().read_text(encoding="utf-8"))
     profiles = cfg.get('agents', [])
     if not isinstance(profiles, list) or not 1 <= len(profiles) <= 16:
         ap.error('Configure 1..16 agent profiles')

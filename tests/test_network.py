@@ -21,6 +21,7 @@ from network_connector import Connector, read_shared, list_shared
 class NetworkTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name).resolve()
         config=os.environ.get('PULSE_TEST_STORAGE_CONFIG')
         self.storage=json.loads(Path(config).read_text()) if config else {}
@@ -40,7 +41,7 @@ class NetworkTests(unittest.TestCase):
     def tearDown(self):
         for aid in self.ids.values():owner('POST','/api/network/revoke',{'agent':aid})
         if self.storage:maintain(server)
-        self.cfg.stop();self.tmp.cleanup()
+        self.cfg.stop()
 
     def grant(self,kind,delete=False):
         return owner('DELETE' if delete else 'POST','/api/network/grants',{

@@ -50,7 +50,7 @@ def detect_timezone():
 
 
 def load_config():
-    cfg = json.loads(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
+    cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
     cfg.setdefault("host", "127.0.0.1")
     cfg.setdefault("port", 4100)
     cfg.setdefault("timezone", "")            # empty = server's timezone
@@ -384,7 +384,7 @@ def telegram_token():
     f = os.path.expanduser(tg.get("bot_token_file", ""))
     if not f:
         return ""
-    raw = Path(f).read_text().strip()
+    raw = Path(f).read_text(encoding="utf-8").strip()
     return json.loads(raw).get("botToken", "") if raw.startswith("{") else raw
 
 
@@ -1133,12 +1133,12 @@ def write_notes_mirror():
               f"tags: {json.dumps(tags)}"] + ([f"project: {n['project']}"] if n["project"] else []) + ["---", MIRROR_MARK, ""]
         content = "\n".join(fm) + (f"# {n['title']}\n\n" if n["title"] else "") + n["body"].strip() + "\n"
         f = folder / name
-        if not f.exists() or f.read_text() != content:
+        if not f.exists() or f.read_text(encoding="utf-8") != content:
             tmp = f.with_suffix(".tmp")
-            tmp.write_text(content)
+            tmp.write_text(content, encoding="utf-8")
             tmp.replace(f)
     for f in folder.glob("*.md"):
-        if f.name not in keep and MIRROR_MARK in f.read_text(errors="ignore"):
+        if f.name not in keep and MIRROR_MARK in f.read_text(encoding="utf-8", errors="ignore"):
             f.unlink()
 
 

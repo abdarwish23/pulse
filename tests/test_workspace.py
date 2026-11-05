@@ -6,6 +6,7 @@ import secrets
 import sqlite3
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from unittest.mock import patch
 
 import test_network
@@ -148,7 +149,7 @@ class WorkspaceTests(unittest.TestCase):
             (storage/filename).write_text('test fixture')
         saved=snapshot(storage,self.root/'backups')
         manifest=json.loads((saved/'manifest.json').read_text())
-        with sqlite3.connect(saved/manifest['database']) as con:
+        with closing(sqlite3.connect(saved/manifest['database'])) as con:
             self.assertEqual(con.execute('SELECT COUNT(*) FROM workspace_files').fetchone()[0],0)
             self.assertEqual(con.execute('PRAGMA integrity_check').fetchone()[0],'ok')
         self.assertEqual(list((saved/'objects').iterdir()),[])

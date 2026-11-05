@@ -43,7 +43,7 @@ def main():
 [accounts]
   pulse: {password}
 [/artifacts]
-  {root}/files
+  {root.as_posix()}/files
   accs:
     rwd: pulse
   flags:

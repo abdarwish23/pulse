@@ -70,7 +70,7 @@ def main():
         class DemoHandler(s.Handler):
             def serve_static(self, path):
                 if path not in ('/', '/index.html'):return super().serve_static(path)
-                html = (s.STATIC / 'index.html').read_text().replace('</header>', '</header><aside class="demo-notice">Demo workspace · Fictional agents and activity</aside>')
+                html = (s.STATIC / 'index.html').read_text(encoding="utf-8").replace('</header>', '</header><aside class="demo-notice">Demo workspace · Fictional agents and activity</aside>')
                 data = html.encode()
                 self.send_response(200)
                 self.send_header('Content-Type','text/html; charset=utf-8')

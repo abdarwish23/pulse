@@ -21,3 +21,7 @@ jobs:
       - if: runner.os == 'Windows'
         run: python -m pip install tzdata
       - run: python scripts/check.py
+      - if: matrix.python == '3.12'
+        run: python scripts/setup_network_storage.py "${{ runner.temp }}/pulse-storage"
+      - if: matrix.python == '3.12'
+        run: python scripts/test_network_storage.py --copyparty "${{ runner.temp }}/pulse-storage/copyparty-sfx.py"

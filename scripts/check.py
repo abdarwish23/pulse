@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Local release checks; pass Python executable paths to test a version matrix."""
 import shutil
+import platform
+import sqlite3
 import subprocess
 import sys
 from pathlib import Path
@@ -14,6 +16,7 @@ def run(command):
 
 
 def main():
+    print(f"Platform: {platform.platform()} ({platform.machine()}); SQLite {sqlite3.sqlite_version}", flush=True)
     for interpreter in sys.argv[1:] or [sys.executable]:
         run([interpreter, "--version"])
         run([interpreter, "-m", "unittest", "discover", "-s", "tests", "-v"])

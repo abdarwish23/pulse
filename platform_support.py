@@ -52,7 +52,7 @@ if os.name == 'nt':
 class WindowsPath:
     """Pin every local path component against rename; reject all reparse points.
 
-    Each open excludes FILE_SHARE_DELETE. Ancestors stay open until the final
+    Each open permits FILE_SHARE_READ only (no writes or deletion). Ancestors stay open until the final
     file handle is acquired or a directory listing finishes. Only drive-letter
     paths are accepted; no UNC, device namespaces, ADS or DOS device aliases.
     """
@@ -79,9 +79,9 @@ class WindowsPath:
                 if part:
                     current /= part
                 is_directory = index < len(path.parts) - 1 or self.directory
-                # GENERIC_READ for the final file; metadata-only for directories.
-                access = 0 if is_directory else 0x80000000
-                handle = kernel.CreateFileW(str(current), access, 3, None, 3,
+                # FILE_READ_ATTRIBUTES for directories; GENERIC_READ for files.
+                access = 0x80 if is_directory else 0x80000000
+                handle = kernel.CreateFileW(str(current), access, 1, None, 3,
                                              0x02000000 | 0x00200000, None)
                 if handle == wt.HANDLE(-1).value:
                     raise ctypes.WinError(ctypes.get_last_error())

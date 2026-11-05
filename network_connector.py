@@ -78,7 +78,8 @@ def _list_entries(location):
         for entry in entries:
             if entry.name.startswith('.') or entry.is_symlink():
                 continue
-            st = entry.stat(follow_symlinks=False)
+            # DirEntry.stat() on Windows omits the hardlink count.
+            st = os.stat(entry.path, follow_symlinks=False) if os.name == 'nt' else entry.stat(follow_symlinks=False)
             # Junctions and other reparse points are not necessarily symlinks.
             if getattr(st, 'st_file_attributes', 0) & 0x400:
                 continue
@@ -162,7 +163,7 @@ def main():
     ap.add_argument('--config',required=True)
     ap.add_argument('--once',action='store_true',help='One poll for each configured agent')
     a=ap.parse_args()
-    cfg=json.loads(Path(a.config).expanduser().read_text())
+    cfg=json.loads(Path(a.config).expanduser().read_text(encoding="utf-8"))
     profiles=cfg.get('agents',[])
     if not isinstance(profiles,list) or not 1<=len(profiles)<=16:
         ap.error('configure between 1 and 16 agent profiles')

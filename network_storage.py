@@ -27,7 +27,7 @@ class WebDAVStorage:
         if u.username or u.password or u.query or u.fragment:
             raise StorageError('invalid storage URL')
         try:
-            credentials = json.loads(Path(config['credentials_file']).expanduser().read_text())
+            credentials = json.loads(Path(config['credentials_file']).expanduser().read_text(encoding="utf-8"))
             self.auth = 'Basic ' + base64.b64encode((credentials['username'] + ':' + credentials['password']).encode()).decode()
         except (OSError, KeyError, ValueError):
             raise StorageError('storage credential file unavailable') from None

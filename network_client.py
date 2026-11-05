@@ -32,7 +32,7 @@ class Client:
         if not filename:
             raise ClientError('Set PULSE_NETWORK_TOKEN_FILE to an enrolled network credential')
         try:
-            self.token = Path(filename).expanduser().read_text().strip()
+            self.token = Path(filename).expanduser().read_text(encoding="utf-8").strip()
         except OSError:
             raise ClientError('Network token file unavailable') from None
         if not self.token.startswith('pn_'):
@@ -49,7 +49,7 @@ class Client:
         f = Path(os.environ.get('PULSE_CF_ACCESS_FILE', '~/.config/pulse/cf-access.json')).expanduser()
         if not (cid and secret) and f.exists():
             try:
-                d=json.loads(f.read_text()); cid,secret=d.get('client_id'),d.get('client_secret')
+                d=json.loads(f.read_text(encoding="utf-8")); cid,secret=d.get('client_id'),d.get('client_secret')
             except (ValueError,OSError):
                 raise ClientError('Invalid Cloudflare Access credential file') from None
         if cid and secret:
