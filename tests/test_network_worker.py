@@ -6,12 +6,12 @@ from pathlib import Path
 import threading
 import time
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import test_network as network_tests
 from test_network import BASE
 from network_client import ClientError
-from network_worker import Worker, bounded, feedback, save
+from network_worker import Worker, bounded, feedback, save, terminate
 from agent_network import stamp
 
 
@@ -274,6 +274,24 @@ class WorkerTests(unittest.TestCase):
                                 ('pi', '')]:
             self.assertTrue(feedback(runtime, output, '', final, 0)[1])
         self.assertLess(len(json.dumps({'message': bounded('あ' * 100000)})), 32000)
+
+
+@unittest.skipUnless(os.name == 'posix', 'POSIX process-group cleanup')
+class TerminationTests(unittest.TestCase):
+    def test_darwin_zombies_are_finished_but_live_group_permission_errors_remain(self):
+        for state in ('Z', 'S'):
+            with self.subTest(state=state):
+                process = Mock(pid=123)
+                process.poll.return_value = 0
+                snapshot = Mock(returncode=0, stdout='123 '+state+'\n')
+                with patch('network_worker.sys.platform', 'darwin'), \
+                     patch('network_worker.os.killpg', side_effect=[None, PermissionError('denied')]), \
+                     patch('network_worker.subprocess.run', return_value=snapshot):
+                    if state == 'Z':
+                        terminate(process)
+                    else:
+                        with self.assertRaises(PermissionError):
+                            terminate(process)
 
 
 if __name__ == '__main__':

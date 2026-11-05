@@ -104,20 +104,33 @@ def feedback(runtime, stdout, stderr, final_file, returncode):
     return message, error
 
 
-def terminate(process):
-    # Each invocation owns its process group; never stop unrelated chat sessions.
+def _signal_group(process, sig):
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(process.pid, sig)
     except ProcessLookupError:
         return
+    except PermissionError:
+        # Darwin can leave adopted zombies in an exited task's process group.
+        # Verify that only zombies (or no members) remain; never suppress a
+        # permission error for a group that still has live processes.
+        if sys.platform == 'darwin' and process.poll() is not None:
+            snapshot = subprocess.run(['/bin/ps', '-axo', 'pgid=,stat='],
+                                      capture_output=True, text=True, timeout=2)
+            states = [fields[1] for line in snapshot.stdout.splitlines()
+                      if len(fields := line.split()) == 2 and fields[0] == str(process.pid)]
+            if snapshot.returncode == 0 and all(state.startswith('Z') for state in states):
+                return
+        raise
+
+
+def terminate(process):
+    # Each invocation owns its process group; never stop unrelated chat sessions.
+    _signal_group(process, signal.SIGTERM)
     try:
         process.wait(timeout=3)
     except subprocess.TimeoutExpired:
         pass
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    _signal_group(process, signal.SIGKILL)
     process.wait(timeout=5)
 
 
@@ -328,16 +341,18 @@ class Worker:
                         break
         finally:
             readers_stop.set()
-            if windows_job:
-                windows_job.close()
-                process.wait(timeout=5)
-            else:
-                terminate(process)
-            for reader in readers:
-                reader.join(timeout=2)
-            process.stdout.close()
-            process.stderr.close()
-            (self.root / 'prompt.txt').unlink(missing_ok=True)
+            try:
+                if windows_job:
+                    windows_job.close()
+                    process.wait(timeout=5)
+                else:
+                    terminate(process)
+            finally:
+                for reader in readers:
+                    reader.join(timeout=2)
+                process.stdout.close()
+                process.stderr.close()
+                (self.root / 'prompt.txt').unlink(missing_ok=True)
         stdout, stderr = (output[k].decode('utf-8', 'replace') for k in ('stdout', 'stderr'))
         message, runtime_error = feedback(self.runtime, stdout, stderr, final, process.returncode)
         final.unlink(missing_ok=True)
