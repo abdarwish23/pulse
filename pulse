@@ -32,6 +32,10 @@ Token: $PULSE_TOKEN or ~/.config/pulse/token.  Server: $PULSE_URL (default http:
 import argparse, json, os, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
+# Native Windows redirected output otherwise uses a legacy code page.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 by = ""
 URL = os.environ.get("PULSE_URL", "http://127.0.0.1:4100").rstrip("/")
 
@@ -50,7 +54,7 @@ def cf_access_headers():
     ({"client_id": "...", "client_secret": "..."})."""
     cid = os.environ.get("PULSE_CF_ACCESS_CLIENT_ID", "")
     secret = os.environ.get("PULSE_CF_ACCESS_CLIENT_SECRET", "")
-    f = Path.home() / ".config" / "pulse" / "cf-access.json"
+    f = Path(os.environ.get("PULSE_CF_ACCESS_FILE") or Path.home() / ".config" / "pulse" / "cf-access.json").expanduser()
     if not (cid and secret) and f.exists():
         data = json.loads(f.read_text())
         cid, secret = data.get("client_id", ""), data.get("client_secret", "")

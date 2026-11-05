@@ -1,6 +1,7 @@
 """Real queue + local subprocess tests; no model calls or production data."""
 import json
 import os
+import sys
 from pathlib import Path
 import threading
 import time
@@ -23,9 +24,9 @@ class WorkerTests(unittest.TestCase):
 
     def worker(self, source, runtime='pi', **extra):
         executable = self.root / ('fake-' + runtime)
-        executable.write_text('#!/usr/bin/env python3\n' + source)
+        executable.write_text(source, encoding='utf-8')
         executable.chmod(0o700)
-        profile = {'agent': self.ids['codex'], 'runtime': runtime, 'executable': str(executable),
+        profile = {'agent': self.ids['codex'], 'runtime': runtime, 'executable': sys.executable, 'executable_args': [str(executable)],
                    'token_file': str(self.root / 'codex.token'), 'requesters': [self.ids['pi']],
                    'execute': True, 'cwd': str(self.root), 'timeout_seconds': 10, **extra}
         worker = Worker(BASE, profile, self.root / ('state-' + runtime))
@@ -79,7 +80,7 @@ class WorkerTests(unittest.TestCase):
         result = self.result(job)
         self.assertEqual(result['status'], 'failed')
         self.assertIn('authentication unavailable', result['result']['message'])
-        Path(worker.profile['executable']).write_text('#!/usr/bin/env python3\nimport time\ntime.sleep(60)\n')
+        Path(worker.profile['executable_args'][0]).write_text('#!/usr/bin/env python3\nimport time\ntime.sleep(60)\n')
         worker.timeout = 1
         job = self.request('message')
         worker.tick(threading.Event())
@@ -227,6 +228,33 @@ class WorkerTests(unittest.TestCase):
         worker = self.worker("print('done')")
         with self.assertRaises(BlockingIOError):
             Worker(BASE, worker.profile, self.root / 'state-pi')
+
+    def test_timeout_stops_descendants_before_they_can_write(self):
+        child = "import time; from pathlib import Path; time.sleep(3); Path('escaped-child').write_text('bad')"
+        source = ("import subprocess,sys,time\n"
+                  f"subprocess.Popen([sys.executable, '-c', {child!r}])\n"
+                  "print('spawned',flush=True)\ntime.sleep(60)\n")
+        worker = self.worker(source)
+        worker.timeout = 1
+        job = self.request('message')
+        worker.tick(threading.Event())
+        self.assertEqual(self.result(job)['error'], 'Agent task timed out')
+        time.sleep(3)
+        self.assertFalse((self.root / 'escaped-child').exists())
+
+    def test_utf8_prompt_and_feedback_and_closed_stream_timeout(self):
+        worker = self.worker("import sys\nassert '日本語' in sys.stdin.read()\nprint('日本語 feedback')")
+        job = self.clients['pi'].call('POST', '/requests', {
+            'recipient': self.ids['codex'], 'kind': 'message',
+            'payload': {'message': '日本語'}, 'idempotency_key': 'utf8'})
+        worker.tick(threading.Event())
+        self.assertEqual(self.result(job)['result']['message'], '日本語 feedback')
+        Path(worker.profile['executable_args'][0]).write_text(
+            "import os,time\nos.close(1);os.close(2);time.sleep(60)\n")
+        worker.timeout = 1
+        job = self.request('message')
+        worker.tick(threading.Event())
+        self.assertEqual(self.result(job)['error'], 'Agent task timed out')
 
     def test_json_error_and_empty_success_are_failures(self):
         final = self.root / 'final'

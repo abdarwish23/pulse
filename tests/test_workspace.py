@@ -71,6 +71,13 @@ class WorkspaceTests(unittest.TestCase):
         self.assertEqual(dest.read_bytes(),b'hello')
         with self.assertRaises(FileExistsError):self.clients['other'].workspace_download(f['id'],dest)
 
+    def test_binary_workspace_exchange_between_agents(self):
+        data = bytes(range(256)) * 256 + b'\r\n\x1a'
+        uploaded = self.upload(name='binary/report.bin', data=data)
+        dest = self.root / 'received.bin'
+        self.clients['other'].workspace_download(uploaded['id'], dest)
+        self.assertEqual(dest.read_bytes(), data)
+
     def test_boundary_disable_and_revocation(self):
         self.assertEqual(call('GET','/api/network/workspace',token=TOKEN)['HTTP'],401)
         self.assertEqual(call('POST','/api/network/workspace',{'enabled':True,'quota_bytes':1024**3},token=self.tokens['pi'])['HTTP'],403)

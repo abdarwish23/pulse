@@ -9,6 +9,7 @@ import threading
 from contextlib import closing, nullcontext, contextmanager
 from dataclasses import dataclass
 from network_storage import WebDAVStorage, StorageError
+from platform_support import lock_exclusive, open_lock
 
 KINDS = ('message', 'file.list', 'file.read')
 MAX_FILE = 32 * 1024 * 1024
@@ -460,16 +461,13 @@ TRANSFER_SLOTS = threading.BoundedSemaphore(2)
 @contextmanager
 def storage_guard(server):
     """Serialize uploads and GC, including the separate local-admin process."""
-    if os.name!='posix':
-        raise StorageError('artifact storage currently requires POSIX file locking')
-    import fcntl
     path=server.DB_PATH.resolve().with_name('.network-storage.lock')
-    fd=os.open(path,os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+    fd=open_lock(path)
     try:
         deadline=time.monotonic()+15
         while True:
             try:
-                fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                lock_exclusive(fd)
                 break
             except BlockingIOError:
                 if time.monotonic()>=deadline:

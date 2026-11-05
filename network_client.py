@@ -5,6 +5,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
+from platform_support import open_regular_source
 from urllib.parse import urlparse, quote
 
 
@@ -113,7 +114,7 @@ class Client:
         file_id = file_id or uuid.uuid4().hex
         self.workspace_id(file_id)
         # Explicit files only: no devices, FIFOs or symbolic links.
-        fd=os.open(Path(source).expanduser(),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        fd=open_regular_source(source)
         with os.fdopen(fd,'rb') as stream:
             info=os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode) or info.st_size>32*1024*1024:

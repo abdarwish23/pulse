@@ -37,7 +37,7 @@ def backup_database(source, destination, keep=14):
             with closing(sqlite3.connect(pending)) as target:
                 src.backup(target)
                 validate(target)
-            with open(pending, "rb") as f:
+            with open(pending, "rb+") as f:
                 os.fsync(f.fileno())
             stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
             out = destination / f"pulse-{stamp}-{Path(pending).stem.removeprefix('.pulse-backup-')}.db"

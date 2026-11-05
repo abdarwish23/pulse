@@ -21,7 +21,7 @@ from network_connector import Connector, read_shared, list_shared
 class NetworkTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory()
-        self.root=Path(self.tmp.name)
+        self.root=Path(self.tmp.name).resolve()
         config=os.environ.get('PULSE_TEST_STORAGE_CONFIG')
         self.storage=json.loads(Path(config).read_text()) if config else {}
         self.cfg=patch.dict(server.CONFIG,{'agent_network':{'enabled':True,'storage':self.storage}})
@@ -239,7 +239,8 @@ class NetworkTests(unittest.TestCase):
         result=self.clients['pi'].call('GET','/requests/'+job['id'])
         self.assertEqual(result['status'],'completed');self.assertEqual(result['artifact']['sha256'],hashlib.sha256(data).hexdigest())
         output=self.root/'download.mp3';self.clients['pi'].download(job['id'],output)
-        self.assertEqual(output.read_bytes(),data);self.assertEqual(output.stat().st_mode&0o777,0o600)
+        self.assertEqual(output.read_bytes(),data)
+        if os.name=='posix':self.assertEqual(output.stat().st_mode&0o777,0o600)
         with self.assertRaises(FileExistsError):self.clients['pi'].download(job['id'],output)
         with self.assertRaises(ClientError) as e:self.clients['other'].download(job['id'],self.root/'denied')
         self.assertEqual(e.exception.status,404)
@@ -285,11 +286,12 @@ class NetworkTests(unittest.TestCase):
 class ConnectorPathTests(unittest.TestCase):
     def test_symlinks_hardlinks_fifo_and_oversize_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root=Path(tmp);(root/'normal').write_bytes(b'ok')
+            root=Path(tmp).resolve();(root/'normal').write_bytes(b'ok')
             self.assertEqual(read_shared(root,'normal'),b'ok')
             (root/'symlink').symlink_to(root/'normal')
             (root/'sub').mkdir();(root/'escape-dir').symlink_to(root/'sub')
-            os.link(root/'normal',root/'hardlink');os.mkfifo(root/'pipe')
+            os.link(root/'normal',root/'hardlink')
+            if hasattr(os, 'mkfifo'):os.mkfifo(root/'pipe')
             for path in ('symlink','hardlink','normal','pipe','escape-dir/file','../etc/passwd'):
                 with self.assertRaises((OSError,ValueError,NetworkError)):read_shared(root,path)
             with open(root/'big','wb') as f:f.truncate(32*1024*1024+1)
@@ -317,12 +319,12 @@ class ProcessRecoveryTests(unittest.TestCase):
             with open(root/'server.log','w') as log:
                 def start():
                     p=subprocess.Popen([sys.executable,str(Path(server.__file__).resolve())],env=env,stdout=log,stderr=log)
-                    for _ in range(100):
-                        if p.poll() is not None:raise AssertionError('test server exited')
+                    for _ in range(300):
+                        if p.poll() is not None:raise AssertionError('test server exited: '+(root/'server.log').read_text())
                         try:
                             with urllib.request.urlopen(url+'/api/health',timeout=.1):return p
                         except OSError:time.sleep(.05)
-                    p.terminate();p.wait();raise AssertionError('test server did not start')
+                    p.terminate();p.wait();raise AssertionError('test server did not start: '+(root/'server.log').read_text())
                 p=start()
                 try:
                     tokens={}

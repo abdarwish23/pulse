@@ -224,7 +224,7 @@ class CloudflareServiceTokenTests(unittest.TestCase):
 
     def test_env_and_file(self):
         home = tempfile.mkdtemp(prefix="pulse-cf-")
-        base = {**os.environ, "HOME": home, "PULSE_URL": BASE, "PULSE_TOKEN": TOKEN}
+        base = {**os.environ, "HOME": home, "USERPROFILE": home, "PULSE_CF_ACCESS_FILE": str(Path(home, ".config/pulse/cf-access.json")), "PULSE_URL": BASE, "PULSE_TOKEN": TOKEN}
         mcp = [sys.executable, str(ROOT / "pulse_mcp.py")]
         cli = [sys.executable, str(ROOT / "pulse"), "ls"]
         self.assertEqual(self.capture(mcp, base), [(None, None)], "nothing sent unless configured")
