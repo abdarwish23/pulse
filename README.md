@@ -4,7 +4,7 @@
 <p align="center"><b>Your projects, notes, todos and reminders in one small self-hosted app that your AI agents can use too.</b></p>
 
 <p align="center">
-Python standard library · No core dependencies · SQLite · Works on phone, tablet and desktop · MCP server for agents
+Python standard library core · SQLite · Works on phone, tablet and desktop · MCP server for agents
 </p>
 
 <p align="center"><img src="docs/brand/pulse-project-cover.png" alt="Pulse: a shared home for people and AI agents, presented with its red logo and desktop project board and mobile Today demo screens" width="1200"></p>
@@ -19,7 +19,7 @@ tasks, notes, reminders and memory are sample content, never the maintainer's pe
 Most productivity tools are either too big to self-host or too closed for your AI agents to use.
 Pulse is deliberately **simple**:
 
-- **No dependencies.** It runs on the Python standard library and SQLite. No `pip install`, no Node build, no Docker required.
+- **Small runtime.** Python standard library and SQLite, with no Node build or Docker required. Windows also needs the `tzdata` timezone package.
 - **One place for everything personal.** Projects, notes, todos, reminders, notifications and long-term memory.
 - **Built for agents.** Claude Code, Codex, Cursor and any other MCP client can read and update the same data you see, and every change shows who made it.
 - **Yours.** One database on your own server. `python3 backup.py` creates a consistent, validated snapshot while it runs.
@@ -56,12 +56,23 @@ Pulse is deliberately **simple**:
 
 ## Quick start
 
-You need **Python 3.10 or newer**, with SQLite FTS5 and an IANA timezone database (included in typical Linux installations). No Python packages to install. Release checks target Linux; Windows and macOS are not yet qualified.
+You need **Python 3.10 or newer**, with SQLite FTS5 and an IANA timezone database. Pulse runs natively on **Linux, macOS and Windows**. Linux/macOS normally include timezone data; Windows needs `tzdata`. See [platform setup and qualification](docs/platforms.md) for exact tested environments and limits.
 
 ```bash
 git clone https://github.com/abdarwish23/pulse.git && cd pulse
 python3 server.py init      # creates config.json, an agent token and asks for a password
 python3 server.py           # http://127.0.0.1:4100
+```
+
+On **Windows (PowerShell)**, use an isolated Python environment:
+
+```powershell
+git clone https://github.com/abdarwish23/pulse.git
+Set-Location pulse
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install tzdata
+.\.venv\Scripts\python.exe server.py init
+.\.venv\Scripts\python.exe server.py
 ```
 
 Open <http://127.0.0.1:4100>, sign in, done.
@@ -104,12 +115,13 @@ Agents can also exchange files in two ways:
   configured read-only folders served by a connector. Transferred artifacts can
   be downloaded with integrity verification, including while the source is offline.
 
-Setup requires the agent network, private Copyparty storage, separate enrolled
-network credentials and the appropriate owner grants. The workspace is disabled
+Setup requires the agent network, separate enrolled network credentials and
+the appropriate owner grants. File exchange also needs private Copyparty storage. The workspace is disabled
 by default and grants access to all enrolled agents when enabled. File sharing
 is not automatic filesystem sync; local originals and downloaded copies are not
-removed on expiry. The connector currently requires POSIX file operations;
-Windows and macOS have not been qualified. Pulse and its storage can access
+removed on expiry. Native connectors, MCP/CLI clients and workspace transfers support Linux,
+macOS and Windows; see the [platform guide](docs/platforms.md) for local path
+requirements and qualification scope. Pulse and its storage can access
 file contents, so this is not end-to-end encryption against the server.
 
 See the [agent network guide](docs/agent-network.md) for enrollment, permissions,
@@ -130,6 +142,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 
 | Guide | |
 |---|---|
+| [Windows, macOS and Linux](docs/platforms.md) | native setup, agent clients, file paths and qualification |
 | [Deployment](docs/deployment.md) | systemd service, HTTPS options, backups, updating |
 | [Configuration](docs/configuration.md) | every `config.json` option |
 | [Agents, MCP and CLI](docs/agents.md) | connect agents, tool reference, CLI |
@@ -154,7 +167,7 @@ scripts/demo.py  sample-data demo
 tests/           end-to-end tests (python3 -m unittest discover -s tests)
 ```
 
-The rules that keep Pulse simple: no runtime dependencies, no build step, one database file, and features only when they earn their place.
+The rules that keep Pulse simple: a standard-library core, no build step, one database file, and features only when they earn their place.
 
 ## Support Pulse
 

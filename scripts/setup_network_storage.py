@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import secrets
+import sys
 import urllib.request
 from pathlib import Path
 
@@ -14,6 +15,8 @@ URL=f'https://github.com/9001/copyparty/releases/download/v{VERSION}/copyparty-s
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('directory',help='New private service directory (must not exist)')
     ap.add_argument('--port',type=int,default=4102)
@@ -30,7 +33,7 @@ def main():
     (root/'copyparty-sfx.py').write_bytes(binary)
     (root/'files').mkdir(mode=0o700)
     password=secrets.token_urlsafe(32)
-    (root/'credentials.json').write_text(json.dumps({'username':'pulse','password':password})+'\n')
+    (root/'credentials.json').write_text(json.dumps({'username':'pulse','password':password})+'\n', encoding='utf-8')
     (root/'copyparty.conf').write_text(f'''[global]
   i: 127.0.0.1
   p: {args.port}
@@ -48,7 +51,7 @@ def main():
 [accounts]
   pulse: {password}
 [/artifacts]
-  {root}/files
+  {root.as_posix()}/files
   accs:
     rwd: pulse
   flags:
@@ -56,25 +59,26 @@ def main():
     df: 2g
     vmaxn: 10000
     nosub
-''')
+''', encoding='utf-8')
     fragment={'agent_network':{'enabled':True,'artifact_ttl_seconds':86400,'storage':{'url':f'http://127.0.0.1:{args.port}/artifacts',
                                                         'credentials_file':str(root/'credentials.json')}}}
-    (root/'pulse-config-fragment.json').write_text(json.dumps(fragment,indent=2)+'\n')
-    (root/'pulse-storage.service').write_text(f'''[Unit]
-Description=Pulse private artifact storage (Copyparty {VERSION})
-After=network-online.target
-[Service]
-Type=simple
-UMask=0077
-ExecStart=/usr/bin/python3 "{root}/copyparty-sfx.py" -c "{root}/copyparty.conf"
-WorkingDirectory={root}
-Restart=on-failure
-RestartSec=5
-MemoryMax=256M
-NoNewPrivileges=yes
-[Install]
-WantedBy=default.target
-''')
+    (root/'pulse-config-fragment.json').write_text(json.dumps(fragment,indent=2)+'\n', encoding='utf-8')
+    if sys.platform.startswith('linux'):
+        (root/'pulse-storage.service').write_text(f'''[Unit]
+    Description=Pulse private artifact storage (Copyparty {VERSION})
+    After=network-online.target
+    [Service]
+    Type=simple
+    UMask=0077
+    ExecStart=/usr/bin/python3 "{root}/copyparty-sfx.py" -c "{root}/copyparty.conf"
+    WorkingDirectory={root}
+    Restart=on-failure
+    RestartSec=5
+    MemoryMax=256M
+    NoNewPrivileges=yes
+    [Install]
+    WantedBy=default.target
+    ''', encoding='utf-8')
     print(f'Prepared Copyparty {VERSION} in {root}. Credentials saved privately, never printed.')
     print('No service started, no port exposed, and no Pulse configuration changed.')
 

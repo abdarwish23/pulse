@@ -26,7 +26,7 @@ def token():
     if t:
         return t.strip()
     f = Path(os.environ.get("PULSE_TOKEN_FILE") or Path.home() / ".config" / "pulse" / "token").expanduser()
-    return f.read_text().strip() if f.exists() else ""
+    return f.read_text(encoding="utf-8").strip() if f.exists() else ""
 
 
 def cf_access_headers():
@@ -35,9 +35,9 @@ def cf_access_headers():
     ({"client_id": "...", "client_secret": "..."})."""
     cid = os.environ.get("PULSE_CF_ACCESS_CLIENT_ID", "")
     secret = os.environ.get("PULSE_CF_ACCESS_CLIENT_SECRET", "")
-    f = Path.home() / ".config" / "pulse" / "cf-access.json"
+    f = Path(os.environ.get("PULSE_CF_ACCESS_FILE") or Path.home() / ".config" / "pulse" / "cf-access.json").expanduser()
     if not (cid and secret) and f.exists():
-        data = json.loads(f.read_text())
+        data = json.loads(f.read_text(encoding="utf-8"))
         cid, secret = data.get("client_id", ""), data.get("client_secret", "")
     return {"CF-Access-Client-Id": cid, "CF-Access-Client-Secret": secret} if cid and secret else {}
 
@@ -467,6 +467,10 @@ def handle(msg):
 
 
 def main():
+    # MCP stdio is UTF-8 on every host, including redirected Windows streams.
+    for stream in (sys.stdin, sys.stdout):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     for line in sys.stdin:
         line = line.strip()
         if not line:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Outbound Linux connector. Serves explicit read-only shares; never starts an LLM or shell."""
+"""Outbound native connector. Serves explicit read-only shares; never starts an LLM or shell."""
 import argparse
 import json
 import os
@@ -10,6 +10,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from platform_support import WindowsPath
 
 from agent_network import MAX_FILE, relative_path, NetworkError
 from network_client import Client, ClientError
@@ -17,6 +18,21 @@ from network_client import Client, ClientError
 
 def open_beneath(root, relative, directory=False):
     """Walk descriptor-relative: no symlink component, FIFO or device reads."""
+    if os.name == 'nt':
+        root = Path(root).expanduser()
+        relative_path(relative, directory=directory)
+        with WindowsPath(root / relative, directory=directory) as opened:
+            if directory:
+                raise ValueError('Use list_shared for native Windows directory access')
+            fd = opened.file_descriptor()
+        try:
+            st = os.fstat(fd)
+            if not stat.S_ISREG(st.st_mode) or st.st_nlink != 1 or st.st_size > MAX_FILE:
+                raise ValueError('Only single-link regular files within the size limit may be shared')
+            return fd
+        except BaseException:
+            os.close(fd)
+            raise
     if os.name!='posix' or not hasattr(os,'O_NOFOLLOW') or os.open not in os.supports_dir_fd:
         raise ValueError('Secure file sharing requires POSIX descriptor-relative opens')
     root=Path(root).expanduser()
@@ -55,25 +71,36 @@ def read_shared(root, path):
     return data
 
 
-def list_shared(root,path):
-    fd=open_beneath(root,path,directory=True)
+def _list_entries(location):
+    items = []
+    truncated = False
+    with os.scandir(location) as entries:
+        for entry in entries:
+            if entry.name.startswith('.') or entry.is_symlink():
+                continue
+            # DirEntry.stat() on Windows omits the hardlink count.
+            st = os.stat(entry.path, follow_symlinks=False) if os.name == 'nt' else entry.stat(follow_symlinks=False)
+            # Junctions and other reparse points are not necessarily symlinks.
+            if getattr(st, 'st_file_attributes', 0) & 0x400:
+                continue
+            if len(items) >= 200 or len(json.dumps(items)) + len(entry.name)*6 + 100 > 28000:
+                truncated = True
+                break
+            if stat.S_ISREG(st.st_mode) and st.st_nlink == 1:
+                items.append({'name': entry.name, 'type': 'file', 'size': st.st_size})
+            elif stat.S_ISDIR(st.st_mode):
+                items.append({'name': entry.name, 'type': 'directory'})
+    return {'entries': sorted(items, key=lambda i: i['name']), 'truncated': truncated}
+
+
+def list_shared(root, path):
+    if os.name == 'nt':
+        relative_path(path, directory=True)
+        with WindowsPath(Path(root).expanduser() / path, directory=True) as opened:
+            return _list_entries(opened.path)
+    fd = open_beneath(root, path, directory=True)
     try:
-        items=[]
-        truncated=False
-        with os.scandir(fd) as entries:
-            for entry in entries:
-                if entry.name.startswith('.') or entry.is_symlink():
-                    continue
-                if len(items)>=200:
-                    truncated=True; break
-                if len(json.dumps(items)) + len(entry.name)*6 + 100 > 28000:
-                    truncated=True; break
-                st=entry.stat(follow_symlinks=False)
-                if stat.S_ISREG(st.st_mode) and st.st_nlink==1:
-                    items.append({'name':entry.name,'type':'file','size':st.st_size})
-                elif stat.S_ISDIR(st.st_mode):
-                    items.append({'name':entry.name,'type':'directory'})
-        return {'entries':sorted(items,key=lambda i:i['name']),'truncated':truncated}
+        return _list_entries(fd)
     finally:
         os.close(fd)
 
@@ -136,7 +163,7 @@ def main():
     ap.add_argument('--config',required=True)
     ap.add_argument('--once',action='store_true',help='One poll for each configured agent')
     a=ap.parse_args()
-    cfg=json.loads(Path(a.config).expanduser().read_text())
+    cfg=json.loads(Path(a.config).expanduser().read_text(encoding="utf-8"))
     profiles=cfg.get('agents',[])
     if not isinstance(profiles,list) or not 1<=len(profiles)<=16:
         ap.error('configure between 1 and 16 agent profiles')

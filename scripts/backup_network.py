@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Back up Pulse and its registered local Copyparty artifacts under the transfer lock."""
 import argparse
+from contextlib import closing
 import hashlib
 import json
 import os
@@ -43,7 +44,7 @@ def snapshot(storage_root, destination, token_directory=None, keep=7):
         # snapshot are copied, avoiding unrelated files and excess storage.
         with storage_guard(server):
             db = backup_database(server.DB_PATH, pending)
-            with sqlite3.connect(db) as con:
+            with closing(sqlite3.connect(db)) as con, con:
                 # Temporary bytes must not outlive their 24-hour policy in backups.
                 con.execute('DELETE FROM workspace_files')
                 con.execute('DELETE FROM network_artifacts WHERE expires_at>0')

@@ -259,6 +259,18 @@ class IntegrationRegressionTests(IsolatedDatabase):
         self.assertEqual(self.read("SELECT title FROM cards")[0][0], "Preserved card")
         self.assertEqual(len(self.read("SELECT * FROM cards")), 1)
 
+    def test_note_mirror_uses_utf8(self):
+        server.init_db()
+        with contextlib.closing(server.db()) as con, con:
+            server.save_note(con, None, {'title': '日本語', 'body': 'مرحبا'}, 'owner', 'user')
+        mirror = self.root / 'mirror'
+        with patch.dict(server.CONFIG, {'notes_mirror_dir': str(mirror)}):
+            server.write_notes_mirror()
+            mirrored = next(mirror.glob('*.md')).read_text(encoding='utf-8')
+            self.assertIn('日本語', mirrored)
+            self.assertIn('مرحبا', mirrored)
+            server.write_notes_mirror()  # Reading an existing mirror uses the same codec.
+
     def test_daily_repeat_preserves_local_time_across_dst(self):
         from datetime import datetime
         from zoneinfo import ZoneInfo

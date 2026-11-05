@@ -6,6 +6,7 @@ import secrets
 import sqlite3
 import unittest
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from unittest.mock import patch
 
 import test_network
@@ -70,6 +71,13 @@ class WorkspaceTests(unittest.TestCase):
         dest=self.root/'download';self.clients['other'].workspace_download(f['id'],dest)
         self.assertEqual(dest.read_bytes(),b'hello')
         with self.assertRaises(FileExistsError):self.clients['other'].workspace_download(f['id'],dest)
+
+    def test_binary_workspace_exchange_between_agents(self):
+        data = bytes(range(256)) * 256 + b'\r\n\x1a'
+        uploaded = self.upload(name='binary/report.bin', data=data)
+        dest = self.root / 'received.bin'
+        self.clients['other'].workspace_download(uploaded['id'], dest)
+        self.assertEqual(dest.read_bytes(), data)
 
     def test_boundary_disable_and_revocation(self):
         self.assertEqual(call('GET','/api/network/workspace',token=TOKEN)['HTTP'],401)
@@ -141,7 +149,7 @@ class WorkspaceTests(unittest.TestCase):
             (storage/filename).write_text('test fixture')
         saved=snapshot(storage,self.root/'backups')
         manifest=json.loads((saved/'manifest.json').read_text())
-        with sqlite3.connect(saved/manifest['database']) as con:
+        with closing(sqlite3.connect(saved/manifest['database'])) as con:
             self.assertEqual(con.execute('SELECT COUNT(*) FROM workspace_files').fetchone()[0],0)
             self.assertEqual(con.execute('PRAGMA integrity_check').fetchone()[0],'ok')
         self.assertEqual(list((saved/'objects').iterdir()),[])

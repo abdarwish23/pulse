@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """Opt-in task execution for enrolled Pulse agents. One task per runtime profile."""
 import argparse
-import fcntl
 import json
 import os
 from pathlib import Path
 import re
 import secrets
-import selectors
+import queue
 import shutil
 import signal
 import subprocess
@@ -16,6 +15,7 @@ import threading
 import time
 
 from network_client import Client, ClientError
+from platform_support import lock_exclusive, WindowsJob
 
 RUNTIMES = ('codex', 'claude', 'pi', 'opencode')
 TERMINAL = ('completed', 'failed', 'cancelled', 'expired', 'interrupted')
@@ -51,15 +51,16 @@ def bounded(value, limit=24000):
 def command(profile, final_file):
     exe = profile.get('executable', profile['runtime'])
     extra = profile.get('args', [])
+    prefix = [exe, *profile.get('executable_args', [])]
     runtime = profile['runtime']
     if runtime == 'codex':
-        return [exe, 'exec', '--skip-git-repo-check', '--color', 'never',
+        return [*prefix, 'exec', '--skip-git-repo-check', '--color', 'never',
                 '--output-last-message', str(final_file), *extra, '-']
     if runtime == 'claude':
-        return [exe, '-p', '--output-format', 'json', *extra]
+        return [*prefix, '-p', '--output-format', 'json', *extra]
     if runtime == 'pi':
-        return [exe, '-p', *extra]
-    return [exe, 'run', '--format', 'json', *extra]
+        return [*prefix, '-p', *extra]
+    return [*prefix, 'run', '--format', 'json', *extra]
 
 
 def feedback(runtime, stdout, stderr, final_file, returncode):
@@ -103,20 +104,33 @@ def feedback(runtime, stdout, stderr, final_file, returncode):
     return message, error
 
 
-def terminate(process):
-    # Each invocation owns its process group; never stop unrelated chat sessions.
+def _signal_group(process, sig):
     try:
-        os.killpg(process.pid, signal.SIGTERM)
+        os.killpg(process.pid, sig)
     except ProcessLookupError:
         return
+    except PermissionError:
+        # Darwin can leave adopted zombies in an exited task's process group.
+        # Verify that only zombies (or no members) remain; never suppress a
+        # permission error for a group that still has live processes.
+        if sys.platform == 'darwin' and process.poll() is not None:
+            snapshot = subprocess.run(['/bin/ps', '-axo', 'pgid=,stat='],
+                                      capture_output=True, text=True, timeout=2)
+            states = [fields[1] for line in snapshot.stdout.splitlines()
+                      if len(fields := line.split()) == 2 and fields[0] == str(process.pid)]
+            if snapshot.returncode == 0 and all(state.startswith('Z') for state in states):
+                return
+        raise
+
+
+def terminate(process):
+    # Each invocation owns its process group; never stop unrelated chat sessions.
+    _signal_group(process, signal.SIGTERM)
     try:
         process.wait(timeout=3)
     except subprocess.TimeoutExpired:
         pass
-    try:
-        os.killpg(process.pid, signal.SIGKILL)
-    except ProcessLookupError:
-        pass
+    _signal_group(process, signal.SIGKILL)
     process.wait(timeout=5)
 
 
@@ -133,6 +147,8 @@ class Worker:
             raise ValueError('Configure owner-authorized requester identities')
         if not isinstance(profile.get('args', []), list) or not all(isinstance(x, str) for x in profile.get('args', [])):
             raise ValueError('Runtime args must be a list of strings')
+        if not isinstance(profile.get('executable_args', []), list) or not all(isinstance(x, str) for x in profile.get('executable_args', [])):
+            raise ValueError('Executable args must be a list of strings')
         self.cwd = str(Path(profile['cwd']).expanduser().resolve(strict=True))
         if not Path(self.cwd).is_dir():
             raise ValueError('Working directory unavailable')
@@ -142,14 +158,14 @@ class Worker:
         self.client = client or Client(url, profile['token_file'])
         self.root = Path(state_dir).expanduser() / self.agent.replace('/', '-')
         self.root.mkdir(parents=True, exist_ok=True, mode=0o700)
-        self.lock = open(self.root / 'worker.lock', 'a')
+        self.lock = open(self.root / 'worker.lock', 'a+b')
         try:
-            fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            lock_exclusive(self.lock.fileno())
         except OSError:
             self.lock.close()
             raise
         self.pending_file = self.root / 'pending.json'
-        self.pending = json.loads(self.pending_file.read_text()) if self.pending_file.exists() else None
+        self.pending = json.loads(self.pending_file.read_text(encoding="utf-8")) if self.pending_file.exists() else None
         self.session = self.pending['session_id'] if self.pending else secrets.token_hex(16)
         self.secrets = [self.client.token]
         self.secrets += [v for k, v in os.environ.items() if any(s in k.upper() for s in ('TOKEN', 'SECRET', 'API_KEY'))]
@@ -206,8 +222,12 @@ class Worker:
         if job['sender'] not in self.profile['requesters']:
             return self.result('This sender is not enabled for task execution on this device.', 'Local execution grant denied')
         exe = self.profile.get('executable', self.runtime)
-        if not shutil.which(exe):
+        resolved_executable = shutil.which(exe)
+        if not resolved_executable:
             return self.result(f'{self.runtime} is not installed or not on the worker PATH.', 'Agent runtime unavailable')
+        if os.name == 'nt' and Path(resolved_executable).suffix.lower() in ('.cmd', '.bat'):
+            return self.result('Configure a native executable, or an interpreter with executable_args for the installed CLI script.',
+                               'Batch runtime wrappers are not supported')
         final = self.root / 'final.txt'
         final.unlink(missing_ok=True)
         prompt = (
@@ -224,12 +244,14 @@ class Worker:
             f'TASK:\n{job["payload"]["message"]}\n')
         env = dict(os.environ)
         env.update(self.profile.get('env', {}))
+        env['PYTHONIOENCODING'] = 'utf-8'
         env.update(PULSE_URL=self.client.url, PULSE_NETWORK_TOKEN_FILE=str(Path(self.profile['token_file']).expanduser()),
                    PULSE_WORKER_REQUEST_ID=job['id'], PULSE_WORKER_AGENT=self.agent)
         # Avoid accidental attachment to the launching agent's session.
         for key in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT'):
             env.pop(key, None)
         argv = command(self.profile, final)
+        argv[0] = resolved_executable
         # OpenCode supports positional messages; other adapters read piped text.
         if self.runtime == 'opencode':
             argv += ['--', prompt]
@@ -240,59 +262,97 @@ class Worker:
         error = ''
         lease_until = job['lease_until']
         next_check = start
+        process = None
+        windows_job = None
         try:
-            with open(self.root / 'prompt.txt', 'w+') as input_file:
+            with open(self.root / 'prompt.txt', 'w+', encoding='utf-8', newline='\n') as input_file:
                 os.chmod(input_file.name, 0o600)
                 input_file.write(prompt)
                 input_file.seek(0)
-                process = subprocess.Popen(argv, cwd=self.cwd, env=env, stdin=input_file,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+                options = dict(cwd=self.cwd, env=env, stdin=input_file,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                if os.name == 'nt':
+                    windows_job = WindowsJob()
+                    process = windows_job.launch(argv, **options)
+                else:
+                    process = subprocess.Popen(argv, start_new_session=True, **options)
         except OSError:
+            if windows_job:
+                windows_job.close()
             return self.result('Could not launch the configured runtime; check executable and working directory.', 'Agent launch failed')
-        try:
-            with selectors.DefaultSelector() as selector:
-                for name in output:
-                    stream = getattr(process, name)
-                    os.set_blocking(stream.fileno(), False)
-                    selector.register(stream, selectors.EVENT_READ, name)
-                while process.poll() is None or selector.get_map():
-                    now = time.monotonic()
-                    if stop.is_set():
-                        error = 'Worker stopped during execution'
-                    elif now >= deadline:
-                        error = 'Agent task timed out'
-                    elif count > OUTPUT_LIMIT:
-                        error = 'Agent output exceeded the capture limit'
-                    if error:
+        chunks = queue.Queue(maxsize=16)
+        readers_stop = threading.Event()
+
+        def read_output(name):
+            stream = getattr(process, name)
+            while not readers_stop.is_set():
+                data = stream.read1(65536)
+                while not readers_stop.is_set():
+                    try:
+                        chunks.put((name, data), timeout=.1)
                         break
-                    if now >= next_check:
-                        try:
-                            self.heartbeat('busy')
-                            current = self.client.call('POST', '/requests/' + job['id'] + '/renew',
-                                {'session_id': self.session, 'lease': job['lease']})
-                            lease_until = current['lease_until']
-                        except ClientError as e:
-                            if e.status in (401, 403, 404, 409) or time.time() >= lease_until - 50:
-                                error = 'Execution stopped: request cancelled, expired, or lease unavailable'
-                                break
-                        next_check = time.monotonic() + 10
-                    for key, _ in selector.select(timeout=.2):
-                        data = os.read(key.fileobj.fileno(), 65536)
-                        if not data:
-                            selector.unregister(key.fileobj)
-                        else:
-                            count += len(data)
-                            output[key.data].extend(data)
-                            if len(output[key.data]) > OUTPUT_LIMIT:
-                                del output[key.data][:-OUTPUT_LIMIT]
-                    # A child may inherit stdout after the runtime exits. Bound draining.
-                    if process.poll() is not None and not selector.select(timeout=0):
+                    except queue.Full:
+                        pass
+                if not data:
+                    break
+
+        readers = [threading.Thread(target=read_output, args=(name,), daemon=True) for name in output]
+        for reader in readers:
+            reader.start()
+        remaining = set(output)
+        exited_at = None
+        try:
+            while remaining or process.poll() is None:
+                now = time.monotonic()
+                if stop.is_set():
+                    error = 'Worker stopped during execution'
+                elif now >= deadline:
+                    error = 'Agent task timed out'
+                elif count > OUTPUT_LIMIT:
+                    error = 'Agent output exceeded the capture limit'
+                if error:
+                    break
+                if now >= next_check:
+                    try:
+                        self.heartbeat('busy')
+                        current = self.client.call('POST', '/requests/' + job['id'] + '/renew',
+                            {'session_id': self.session, 'lease': job['lease']})
+                        lease_until = current['lease_until']
+                    except ClientError as e:
+                        if e.status in (401, 403, 404, 409) or time.time() >= lease_until - 50:
+                            error = 'Execution stopped: request cancelled, expired, or lease unavailable'
+                            break
+                    next_check = time.monotonic() + 10
+                try:
+                    name, data = chunks.get(timeout=.1)
+                    if data:
+                        count += len(data)
+                        output[name].extend(data)
+                        if len(output[name]) > OUTPUT_LIMIT:
+                            del output[name][:-OUTPUT_LIMIT]
+                    else:
+                        remaining.discard(name)
+                except queue.Empty:
+                    pass
+                # Bound pipe draining when a descendant holds inherited streams.
+                if process.poll() is not None:
+                    exited_at = exited_at or time.monotonic()
+                    if time.monotonic() - exited_at > 1:
                         break
         finally:
-            terminate(process)
-            process.stdout.close()
-            process.stderr.close()
-            (self.root / 'prompt.txt').unlink(missing_ok=True)
+            readers_stop.set()
+            try:
+                if windows_job:
+                    windows_job.close()
+                    process.wait(timeout=5)
+                else:
+                    terminate(process)
+            finally:
+                for reader in readers:
+                    reader.join(timeout=2)
+                process.stdout.close()
+                process.stderr.close()
+                (self.root / 'prompt.txt').unlink(missing_ok=True)
         stdout, stderr = (output[k].decode('utf-8', 'replace') for k in ('stdout', 'stderr'))
         message, runtime_error = feedback(self.runtime, stdout, stderr, final, process.returncode)
         final.unlink(missing_ok=True)
@@ -337,7 +397,7 @@ def main():
     ap.add_argument('--once', action='store_true')
     a = ap.parse_args()
     os.umask(0o077)
-    cfg = json.loads(Path(a.config).expanduser().read_text())
+    cfg = json.loads(Path(a.config).expanduser().read_text(encoding="utf-8"))
     profiles = cfg.get('agents', [])
     if not isinstance(profiles, list) or not 1 <= len(profiles) <= 16:
         ap.error('Configure 1..16 agent profiles')

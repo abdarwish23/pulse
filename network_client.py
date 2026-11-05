@@ -5,6 +5,7 @@ import os
 import urllib.error
 import urllib.request
 from pathlib import Path
+from platform_support import open_regular_source
 from urllib.parse import urlparse, quote
 
 
@@ -31,7 +32,7 @@ class Client:
         if not filename:
             raise ClientError('Set PULSE_NETWORK_TOKEN_FILE to an enrolled network credential')
         try:
-            self.token = Path(filename).expanduser().read_text().strip()
+            self.token = Path(filename).expanduser().read_text(encoding="utf-8").strip()
         except OSError:
             raise ClientError('Network token file unavailable') from None
         if not self.token.startswith('pn_'):
@@ -48,7 +49,7 @@ class Client:
         f = Path(os.environ.get('PULSE_CF_ACCESS_FILE', '~/.config/pulse/cf-access.json')).expanduser()
         if not (cid and secret) and f.exists():
             try:
-                d=json.loads(f.read_text()); cid,secret=d.get('client_id'),d.get('client_secret')
+                d=json.loads(f.read_text(encoding="utf-8")); cid,secret=d.get('client_id'),d.get('client_secret')
             except (ValueError,OSError):
                 raise ClientError('Invalid Cloudflare Access credential file') from None
         if cid and secret:
@@ -113,7 +114,7 @@ class Client:
         file_id = file_id or uuid.uuid4().hex
         self.workspace_id(file_id)
         # Explicit files only: no devices, FIFOs or symbolic links.
-        fd=os.open(Path(source).expanduser(),os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+        fd=open_regular_source(source)
         with os.fdopen(fd,'rb') as stream:
             info=os.fstat(stream.fileno())
             if not stat.S_ISREG(info.st_mode) or info.st_size>32*1024*1024:

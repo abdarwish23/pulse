@@ -50,7 +50,7 @@ def detect_timezone():
 
 
 def load_config():
-    cfg = json.loads(CONFIG_PATH.read_text()) if CONFIG_PATH.exists() else {}
+    cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
     cfg.setdefault("host", "127.0.0.1")
     cfg.setdefault("port", 4100)
     cfg.setdefault("timezone", "")            # empty = server's timezone
@@ -79,20 +79,21 @@ def now():
 
 
 def db():
-    # Tighten existing databases before SQLite can create WAL/SHM sidecars.
-    if DB_PATH.exists():
-        os.chmod(DB_PATH, 0o600)
-    else:
-        try:
-            fd = os.open(DB_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            os.close(fd)
-        except FileExistsError:
+    if os.name == "posix":
+        # Tighten existing databases before SQLite can create WAL/SHM sidecars.
+        if DB_PATH.exists():
             os.chmod(DB_PATH, 0o600)
-    for suffix in ("-wal", "-shm", "-journal"):
-        try:
-            os.chmod(str(DB_PATH) + suffix, 0o600)
-        except FileNotFoundError:
-            pass
+        else:
+            try:
+                fd = os.open(DB_PATH, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+                os.close(fd)
+            except FileExistsError:
+                os.chmod(DB_PATH, 0o600)
+        for suffix in ("-wal", "-shm", "-journal"):
+            try:
+                os.chmod(str(DB_PATH) + suffix, 0o600)
+            except FileNotFoundError:
+                pass
     con = sqlite3.connect(DB_PATH, timeout=10)
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys=ON")
@@ -383,7 +384,7 @@ def telegram_token():
     f = os.path.expanduser(tg.get("bot_token_file", ""))
     if not f:
         return ""
-    raw = Path(f).read_text().strip()
+    raw = Path(f).read_text(encoding="utf-8").strip()
     return json.loads(raw).get("botToken", "") if raw.startswith("{") else raw
 
 
@@ -1132,12 +1133,12 @@ def write_notes_mirror():
               f"tags: {json.dumps(tags)}"] + ([f"project: {n['project']}"] if n["project"] else []) + ["---", MIRROR_MARK, ""]
         content = "\n".join(fm) + (f"# {n['title']}\n\n" if n["title"] else "") + n["body"].strip() + "\n"
         f = folder / name
-        if not f.exists() or f.read_text() != content:
+        if not f.exists() or f.read_text(encoding="utf-8") != content:
             tmp = f.with_suffix(".tmp")
-            tmp.write_text(content)
+            tmp.write_text(content, encoding="utf-8")
             tmp.replace(f)
     for f in folder.glob("*.md"):
-        if f.name not in keep and MIRROR_MARK in f.read_text(errors="ignore"):
+        if f.name not in keep and MIRROR_MARK in f.read_text(encoding="utf-8", errors="ignore"):
             f.unlink()
 
 
@@ -1777,6 +1778,8 @@ def cmd_init():
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     cmd = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if cmd == "init":
         return cmd_init()
