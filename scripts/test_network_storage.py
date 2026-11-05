@@ -21,7 +21,7 @@ def main():
     ap.add_argument('--copyparty',required=True,help='Pinned copyparty-sfx.py prepared by setup_network_storage.py')
     a=ap.parse_args()
     binary=Path(a.copyparty).expanduser().resolve()
-    with tempfile.TemporaryDirectory(prefix='pulse-storage-test-') as tmp:
+    with tempfile.TemporaryDirectory(prefix='pulse-storage-試験-') as tmp:
         root=Path(tmp);(root/'files').mkdir(mode=0o700)
         password=secrets.token_urlsafe(32)
         with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
@@ -51,7 +51,7 @@ def main():
     df: 2g
     vmaxb: 1g
     nosub
-''');conf.chmod(0o600)
+''', encoding='utf-8');conf.chmod(0o600)
         creds=root/'credentials.json';creds.write_text(json.dumps({'username':'pulse','password':password}));creds.chmod(0o600)
         storage=root/'storage.json';storage.write_text(json.dumps({'url':f'http://127.0.0.1:{port}/artifacts','credentials_file':str(creds)}))
         with open(root/'service.log','w') as log:

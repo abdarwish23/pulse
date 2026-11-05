@@ -22,6 +22,6 @@ jobs:
         run: python -m pip install tzdata
       - run: python scripts/check.py
       - if: matrix.python == '3.12'
-        run: python scripts/setup_network_storage.py "${{ runner.temp }}/pulse-storage"
+        run: python scripts/setup_network_storage.py "${{ runner.temp }}/pulse-storage-試験"
       - if: matrix.python == '3.12'
-        run: python scripts/test_network_storage.py --copyparty "${{ runner.temp }}/pulse-storage/copyparty-sfx.py"
+        run: python scripts/test_network_storage.py --copyparty "${{ runner.temp }}/pulse-storage-試験/copyparty-sfx.py"

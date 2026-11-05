@@ -1778,6 +1778,8 @@ def cmd_init():
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     cmd = sys.argv[1] if len(sys.argv) > 1 else "serve"
     if cmd == "init":
         return cmd_init()
