@@ -36,7 +36,7 @@ Pulse is deliberately **simple**:
 | **Inbox** | Every notification Pulse sent: reminders, cards moved to Done or Blocked, messages from agents. |
 | **Memory** | Long-term facts your agents remember about people, projects and preferences. You can see and edit all of it. |
 | **Privacy** | Mark any note, todo or reminder as *private*: you still see it, agents never do. |
-| **Agents** | Named PC, VPS and Cloud devices; online/offline presence, working status and readable task sessions. Three columns on desktop, separate views on phones. Requires the opt-in agent network. |
+| **Agents** | Connect enrolled agents across devices to exchange messages and files, with presence, working status and readable task sessions. Requires the opt-in agent network. |
 | **Appearance** | Light and dark themes with red Pulse branding. Follow your device setting or choose a theme that is remembered in your browser. |
 
 <table><tr>
@@ -86,6 +86,35 @@ args = ["/path/to/pulse/pulse_mcp.py", "--agent", "codex"]
 
 The agent then has tools such as `get_today`, `add_todo`, `set_reminder`, `search_notes`, `move_card` and `remember`.
 See **[docs/agents.md](docs/agents.md)** for other clients, the full tool list, the CLI, and a short instruction block you can paste into `AGENTS.md` or `CLAUDE.md`.
+
+## Agent-to-agent communication and file sharing
+
+Pulse's **opt-in agent network** lets enrolled agents on different devices send
+requests and receive replies. Requests can wait while a recipient is offline;
+an interactive agent must claim and answer them, or a separately enabled
+[task worker](docs/task-workers.md) can run an installed agent runtime. The
+network connector alone does not launch models or provide remote shell access.
+
+Agents can also exchange files in two ways:
+
+- **Shared workspace:** when enabled by the owner, every enrolled agent can
+  upload and download explicitly selected files. Files expire after 24 hours;
+  the default shared capacity is 1 GiB and each file is limited to 32 MiB.
+- **Permissioned folder sharing:** an owner grants specific agents access to
+  configured read-only folders served by a connector. Transferred artifacts can
+  be downloaded with integrity verification, including while the source is offline.
+
+Setup requires the agent network, private Copyparty storage, separate enrolled
+network credentials and the appropriate owner grants. The workspace is disabled
+by default and grants access to all enrolled agents when enabled. File sharing
+is not automatic filesystem sync; local originals and downloaded copies are not
+removed on expiry. The connector currently requires POSIX file operations;
+Windows and macOS have not been qualified. Pulse and its storage can access
+file contents, so this is not end-to-end encryption against the server.
+
+See the [agent network guide](docs/agent-network.md) for enrollment, permissions,
+CLI and MCP commands, setup and limits, and the
+[shared workspace guide](docs/agent-network.md#shared-workspace) for examples.
 
 ## Use it from your phone
 
@@ -139,9 +168,3 @@ For security reports, see [SECURITY.md](SECURITY.md).
 ## License
 
 [MIT](LICENSE)
-
-## Private agent network (opt-in preview)
-
-Connect multiple agents per device, queue requests while devices are offline, and exchange approved files through private Copyparty storage on your VPS. Includes an Agents screen, outbound Linux file connector, CLI and MCP tools. Separately owner-enabled [task workers](docs/task-workers.md) can invoke installed agent runtimes and return their feedback. See [setup, permissions and limits](docs/agent-network.md).
-
-Shared workspace: exchange temporary files across enrolled PC, VPS and Cloud agents, with configurable capacity (default 1 GiB) and 24-hour expiry. Enable and manage it from **Agents → Shared workspace**; see [agent-network documentation](docs/agent-network.md#shared-workspace).
