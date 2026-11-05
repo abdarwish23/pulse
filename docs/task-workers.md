@@ -1,6 +1,6 @@
 # Automatic agent tasks
 
-One optional user service per Linux device watches Pulse messages and invokes the
+One optional worker process per Linux, macOS or Windows device watches Pulse messages and invokes the
 addressed runtime. Send with `request_agent_message`, then read
 `get_network_request` until `completed`, `failed`, `cancelled`, `expired`, or
 `interrupted`. The result contains the agent's final answer, runtime, duration and
@@ -16,7 +16,7 @@ an unsolicited new task. In particular, an idle desktop chat is not woken by a r
 ## Install
 
 1. Use a checkout containing `network_worker.py` and `network_client.py` on each
-   device, e.g. `~/pulse-network-client`. Python 3.10+ and Linux are required.
+   device, e.g. `~/pulse-network-client`. Python 3.10+ is required; Windows also needs `tzdata`. Keep the complete checkout, including `platform_support.py` and `network_worker_child.py`.
 2. Retain the existing Pulse URL, network credentials and Cloudflare Access file.
    Copy `deploy/network-worker.example.json` to
    `~/.config/pulse/network-worker.json` and set mode 600. Set a private state
@@ -30,7 +30,9 @@ an unsolicited new task. In particular, an idle desktop chat is not woken by a r
    Defaults retain runtime permissions. For unattended editing/execution the owner
    must configure the intended noninteractive permissions locally. Never put
    secrets in `args`; existing runtime credential stores are reused.
-5. Adapt paths in `deploy/pulse-worker.service`, install it under
+5. First verify `python3 network_worker.py --config ~/.config/pulse/network-worker.json --once`
+   using the native interpreter. On macOS/Windows follow [platform setup](platforms.md)
+   for LaunchAgents/Task Scheduler and absolute runtime paths. On Linux, adapt paths in `deploy/pulse-worker.service`, install it under
    `~/.config/systemd/user/`, then `systemctl --user daemon-reload` and
    `systemctl --user enable --now pulse-worker.service`. Ensure the service PATH
    includes each runtime and its Node interpreter. User lingering determines
@@ -38,7 +40,7 @@ an unsolicited new task. In particular, an idle desktop chat is not woken by a r
 
 Example profiles use runtime values `codex`, `claude`, `pi`, or `opencode`.
 Each has `agent`, `token_file`, `requesters`, `execute`, `cwd`, and optionally
-`executable`, `args`, `env`, `timeout_seconds` (default 1800). Do not use
+`executable`, `executable_args` (trusted interpreter/script prefix), `args`, `env`, `timeout_seconds` (default 1800). Do not use
 `--continue` or `--resume` for automatic tasks: fresh sessions avoid borrowing an
 unrelated conversation. Model/provider defaults are retained unless the owner
 explicitly configures them. A missing executable returns a failed request with a
@@ -49,7 +51,7 @@ clear explanation; an enrolled identity alone does not establish model readiness
 * Poll every three seconds; one active task per configured profile. Profiles can
   run concurrently. Duplicate workers using the same state directory are rejected.
 * Refresh leases/presence every ten seconds while running. Cancellation/revocation
-  stops the invocation's process group on the next check (network timeout can add
+  stops the invocation's process group (POSIX) or job object (Windows) on the next check (network timeout can add
   latency). This cannot undo actions already performed or detached external work.
 * Results survive a lost controller response and worker restart. A crash during
   execution reports failure or the controller's `interrupted` state; it never
@@ -69,7 +71,11 @@ clear explanation; an enrolled identity alone does not establish model readiness
   isolated from each other. Runtime permissions and existing project instructions
   still apply. Do not grant execution to unknown identities.
 
-Stop with `systemctl --user stop pulse-worker`; disable to prevent boot startup.
+On macOS/Windows stop the foreground process with Ctrl+C, or disable its configured
+LaunchAgent/scheduled task. Windows runtime `.cmd`/`.bat` wrappers are rejected;
+use a native executable or an explicit interpreter and `executable_args`.
+
+On Linux stop with `systemctl --user stop pulse-worker`; disable to prevent boot startup.
 Rollback consists of stopping/disabling that service; no server/database rollback
 is needed. Existing file connectors and interactive agents continue independently.
 

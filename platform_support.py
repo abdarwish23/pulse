@@ -79,8 +79,9 @@ class WindowsPath:
                 if part:
                     current /= part
                 is_directory = index < len(path.parts) - 1 or self.directory
-                # FILE_READ_ATTRIBUTES for directories; GENERIC_READ for files.
-                access = 0x80 if is_directory else 0x80000000
+                # GENERIC_READ participates in share checks; metadata-only opens
+                # can allow rename despite excluding FILE_SHARE_DELETE.
+                access = 0x80000000
                 handle = kernel.CreateFileW(str(current), access, 1, None, 3,
                                              0x02000000 | 0x00200000, None)
                 if handle == wt.HANDLE(-1).value:

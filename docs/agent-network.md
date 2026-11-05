@@ -21,7 +21,7 @@ Other supported MCP clients ──┘        │ private loopback WebDAV
                                       └── Copyparty ── VPS files directory
 ```
 
-Run exactly one Pulse server process for this SQLite/storage instance; its POSIX file lock coordinates upload registration and garbage collection, including an explicit admin cleanup process. Multiple server processes/replicas are not supported. No peer-to-peer ports or VPN are required. Pulse/storage are trusted with artifact contents; transport encryption is not end-to-end encryption against the controller. Copyparty is MIT licensed, with Python-only core operation; it is a separate optional service, not a new Pulse runtime dependency.
+Run exactly one Pulse server process for this SQLite/storage instance; its native cross-process file lock coordinates upload registration and garbage collection, including an explicit admin cleanup process. Multiple server processes/replicas are not supported. No peer-to-peer ports or VPN are required. Pulse/storage are trusted with artifact contents; transport encryption is not end-to-end encryption against the controller. Copyparty is MIT licensed, with Python-only core operation; it is a separate optional service, not a new Pulse runtime dependency.
 
 Install the complete checkout, including the `network_*.py` modules, rather than copying the MCP/CLI file alone.
 
@@ -35,7 +35,7 @@ Agents may discover enrolled identity metadata. Requests are visible only to the
 - 100 outstanding requests per requester; 10,000 retained requests overall. Latest 200 shown in the UI/API. Deadlines are 60 seconds to seven days (default one day).
 - Leases last at most five minutes and can be renewed within the request deadline. Each session holds one request at a time; at most five claims per request.
 - Read-only file operations may be retried after lease expiry. An interrupted **message** becomes `interrupted` and requires explicit reconciliation before retry. There is no exactly-once guarantee for actions an interactive agent takes outside Pulse.
-- A directory listing is bounded to 200 entries and a response-size budget. `truncated: true` means the listing is incomplete; browse a narrower folder. Hidden files, path traversal, symlinks, hardlinked regular files, devices and FIFOs are rejected by the Linux connector.
+- A directory listing is bounded to 200 entries and a response-size budget. `truncated: true` means the listing is incomplete; browse a narrower folder. Hidden paths, path traversal, symlinks, hardlinked regular files and non-regular files are rejected. Windows additionally rejects junctions/reparse points, device aliases, UNC paths and alternate data streams.
 - Maximum file: 32 MiB. Workspace files and request artifacts share one configurable capacity, initially 1 GiB. The owner changes it in Agents → Shared workspace → Capacity and access settings (1 MiB–1 TiB; cannot shrink below current usage). Copyparty reserves 2 GiB free disk independently. Increasing the application quota does not create physical disk space. Remove an old Copyparty `vmaxb: 1g` setting when upgrading so Pulse is the authoritative capacity limit.
 - Artifact retention is controlled by `agent_network.artifact_ttl_seconds`: `0` keeps files until withdrawn; a positive value expires them after that many seconds (maximum 30 days). The preparation helper chooses `86400` (24 hours). If unspecified, the API defaults to 24 hours. Once uploaded, a file does not require the source computer to stay online. This is a permissioned shared library accessed through Pulse, not an unlimited writable filesystem or desktop sync client.
 - Request/audit metadata is retained for about 30 days after the request deadline / event time. Requests that still own a stored artifact retain their metadata until the artifact is withdrawn or expires. A minute-based maintenance loop expires work and retries storage deletion. Failed cleanup remains recorded in SQLite.
@@ -55,7 +55,7 @@ To restore, stop Pulse, its connector and storage first; preserve the current st
 
 ## Prepare storage (does not deploy)
 
-The preparation helper downloads **Copyparty 1.20.26** from its official release and verifies a pinned SHA-256. It creates a new private directory, credentials, configuration and a user-service template. It never changes existing Pulse config or starts a service.
+The preparation helper downloads **Copyparty 1.20.26** from its official release and verifies a pinned SHA-256. It creates a new private directory, credentials and configuration, plus a systemd user-service template on Linux. On macOS/Windows run `python3 /path/to/copyparty-sfx.py -c /path/to/copyparty.conf` with your native Python interpreter, then configure per-user startup if needed. It never changes existing Pulse config or starts a service.
 
 ```bash
 python3 scripts/setup_network_storage.py ~/.local/share/pulse-storage
@@ -110,7 +110,7 @@ python3 network_connector.py --config ~/.config/pulse/network-connector.json --o
 python3 network_connector.py --config ~/.config/pulse/network-connector.json
 ```
 
-A profile serves `file.list` and `file.read`; enroll those capabilities. It never advertises an interactive LLM as available merely because its file connector is online. The UI shows each session's capabilities. To keep the connector running, adapt `deploy/pulse-connector.service` to the checkout path on that computer and install it as a user service after verification. Linux/POSIX descriptor-relative opens are required for file serving; unsupported platforms fail closed.
+A profile serves `file.list` and `file.read`; enroll those capabilities. It never advertises an interactive LLM as available merely because its file connector is online. The UI shows each session's capabilities. To keep the connector running, adapt `deploy/pulse-connector.service` to the checkout path on that computer and install it as a user service after verification. Linux/macOS use descriptor-relative opens; Windows uses pinned native handles and rejects reparse points. Use canonical absolute share roots (macOS system aliases such as `/tmp` resolve under `/private`). See [native setup and path rules](platforms.md). Unsupported paths fail closed.
 
 HTTPS is mandatory for remote Pulse URLs. Cloudflare Access service credentials use `PULSE_CF_ACCESS_CLIENT_ID` / `PULSE_CF_ACCESS_CLIENT_SECRET`, or `PULSE_CF_ACCESS_FILE` (default `~/.config/pulse/cf-access.json`). Redirects are rejected so a login redirect cannot receive a forwarded bearer token. Keep the existing service-token policy; never weaken owner authentication to connect an agent.
 

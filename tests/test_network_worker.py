@@ -256,6 +256,17 @@ class WorkerTests(unittest.TestCase):
         worker.tick(threading.Event())
         self.assertEqual(self.result(job)['error'], 'Agent task timed out')
 
+    @unittest.skipUnless(os.name == 'nt', 'native Windows batch wrapper')
+    def test_batch_wrappers_are_rejected_without_execution(self):
+        worker = self.worker("print('must not run')")
+        batch = self.root / 'runtime.cmd'
+        batch.write_text('@echo unsafe>should-not-exist')
+        worker.profile['executable'] = str(batch)
+        job = self.request('message')
+        worker.tick(threading.Event())
+        self.assertEqual(self.result(job)['error'], 'Batch runtime wrappers are not supported')
+        self.assertFalse((self.root / 'should-not-exist').exists())
+
     def test_json_error_and_empty_success_are_failures(self):
         final = self.root / 'final'
         for runtime, output in [('claude', '{"is_error":true,"result":"quota exceeded"}'),

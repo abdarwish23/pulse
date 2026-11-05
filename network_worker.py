@@ -209,8 +209,12 @@ class Worker:
         if job['sender'] not in self.profile['requesters']:
             return self.result('This sender is not enabled for task execution on this device.', 'Local execution grant denied')
         exe = self.profile.get('executable', self.runtime)
-        if not shutil.which(exe):
+        resolved_executable = shutil.which(exe)
+        if not resolved_executable:
             return self.result(f'{self.runtime} is not installed or not on the worker PATH.', 'Agent runtime unavailable')
+        if os.name == 'nt' and Path(resolved_executable).suffix.lower() in ('.cmd', '.bat'):
+            return self.result('Configure a native executable, or an interpreter with executable_args for the installed CLI script.',
+                               'Batch runtime wrappers are not supported')
         final = self.root / 'final.txt'
         final.unlink(missing_ok=True)
         prompt = (
@@ -234,6 +238,7 @@ class Worker:
         for key in ('CLAUDECODE', 'CLAUDE_CODE_ENTRYPOINT'):
             env.pop(key, None)
         argv = command(self.profile, final)
+        argv[0] = resolved_executable
         # OpenCode supports positional messages; other adapters read piped text.
         if self.runtime == 'opencode':
             argv += ['--', prompt]

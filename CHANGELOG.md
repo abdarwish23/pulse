@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Add native Windows and macOS platform support and a manual qualification matrix
+  for Python 3.10, 3.12 and 3.13, including real Copyparty transfers on each OS.
+- Use native Windows file locks, guarded file handles and task job objects; keep
+  path/link protections and process cancellation across platforms. Fix Windows
+  backup flushing, UTF-8 MCP/CLI/note handling and file-handle cleanup.
+- Document native installation, agent enrollment, file exchange, background
+  operation and the precise qualification scope.
+
 - Add an owner-enabled shared workspace for all enrolled agents: editable 1 GiB capacity, 24-hour expiry, verified file uploads/downloads, CLI/MCP tools, access indicators and temporary-file backup exclusion. Replace agent initials with locally served official identity logos.
 
 - Version Agents JavaScript and styles in the page so existing browsers fetch the redesigned UI after deployment.

@@ -1,20 +1,27 @@
 # Local release checks
 
 GitHub Actions is manual-only. A push or PR does not start hosted CI. Validate
-locally with Python 3.10, 3.12 and 3.13, plus Node.js for frontend checks:
+locally with Python 3.10, 3.12 and 3.13, plus Node.js for frontend checks.
+The manual workflow runs the same version matrix on native Linux, macOS and
+Windows, with real Copyparty transfers on Python 3.12 for each OS:
 
 ```bash
 python3 scripts/check.py python3.10 python3.12 python3.13
 ```
 
-Interpreter paths work too. No packages or network services are needed by the
-tests: they use temporary databases, loopback HTTP and stubbed Telegram delivery.
+Interpreter paths work too. Windows requires `tzdata`; install it in the selected
+Python environment. The standard suite needs no external network services: they use temporary databases, loopback HTTP and stubbed Telegram delivery.
 The tests cover authentication boundaries, private derived data, URL validation,
 proxy trust, initialization, backup integrity/restore, schema upgrade, durable
 delivery recovery, concurrency and cancellation. Frontend tests exercise legacy
 unsafe links and rendering with a minimal DOM stub; additionally smoke-test the
 real browser UI with `python3 scripts/demo.py` before release. Record exact
-versions, commit and results. Do not infer Windows/macOS support from Linux tests.
+versions, commit and results. See the [native setup](platforms.md) and
+[qualification receipt](platform-qualification.md). Native runs must pass before
+expanding qualification; Linux results alone do not qualify another platform.
+Real-storage qualification downloads the pinned, checksum-verified Copyparty
+release with `scripts/setup_network_storage.py` and runs
+`scripts/test_network_storage.py` against a private disposable instance.
 
 ## Upgrade from 1.0
 
