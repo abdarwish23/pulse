@@ -1,8 +1,7 @@
 # Changelog
 
-## Unreleased
+## 1.2.0 — 2026-11-05
 
-- Add a Buy Me a Coffee ☕ support button with its logo to the README.
 - Add native Windows and macOS platform support and a manual qualification matrix
   for Python 3.10, 3.12 and 3.13, including real Copyparty transfers on each OS.
 - Use native Windows file locks, guarded file handles and task job objects; keep
@@ -10,15 +9,11 @@
   backup flushing, UTF-8 MCP/CLI/note handling and file-handle cleanup.
 - Document native installation, agent enrollment, file exchange, background
   operation and the precise qualification scope.
-
 - Add an owner-enabled shared workspace for all enrolled agents: editable 1 GiB capacity, 24-hour expiry, verified file uploads/downloads, CLI/MCP tools, access indicators and temporary-file backup exclusion. Replace agent initials with locally served official identity logos.
-
 - Version Agents JavaScript and styles in the page so existing browsers fetch the redesigned UI after deployment.
-
 - Redesign Agents as a responsive device directory and readable task-session inbox, with editable device/agent names, PC/VPS/Cloud types, labeled live presence and separate work activity. Preserve permissions and files in secondary views; fix ready file connectors masking busy workers.
-
 - Add the approved Pulse project cover to the README and reusable brand assets.
-- Add a Buy Me a Coffee support link and GitHub Sponsor button for Pulse.
+- Add a Buy Me a Coffee support link with logo, and a GitHub Sponsor button for Pulse.
 - Apply the selected red gradient, curved two-node Pulse identity to the app header, sign-in screen and favicon.
 - Add light, dark and system appearance choices with saved browser preferences, cross-tab updates and accessible theme colors.
 - Refresh repository screenshots from an isolated fictional demo workspace in both themes; add a repeatable browser capture and verification script that cannot target a live instance.

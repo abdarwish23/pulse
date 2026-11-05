@@ -150,6 +150,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 | [HTTP API](docs/api.md) | REST endpoints |
 | [Agent network](docs/agent-network.md) | private agent coordination and shared VPS artifacts |
 | [Task workers](docs/task-workers.md) | opt-in automatic tasks using installed agent runtimes |
+| [1.2.0 release](docs/releases/1.2.0.md) | validation, upgrade notes and known limits |
 | [1.1.0 release](docs/releases/1.1.0.md) | validation, upgrade notes and known limits |
 | [Release checks](docs/release-checks.md) | local verification, upgrade behavior and release gates |
 | [Branding and screenshots](docs/branding.md) | logo assets, theme behavior and safe demo captures |

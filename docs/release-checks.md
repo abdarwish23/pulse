@@ -63,5 +63,5 @@ Before publication, inspect all refs/assets intended to be public for secrets
 and personal data, run a redacted history/worktree secret scan, check the license
 and screenshots, prepare release notes and create the approved version tag.
 Do not rewrite history based on stale instructions about a `clean-main` branch.
-Release 1.1.0 uses `1.1.0` in MCP metadata and the changelog, with tag `v1.1.0`.
-See [the release receipt](releases/1.1.0.md) for validation and known limits.
+Release 1.2.0 uses `1.2.0` in MCP metadata and the changelog, with tag `v1.2.0`.
+See [the release receipt](releases/1.2.0.md) for validation and known limits.
