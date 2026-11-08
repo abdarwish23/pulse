@@ -200,6 +200,76 @@ class NetworkTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stderr)
         self.assertTrue(any(a['id']==self.ids['pi'] for a in json.loads(result.stdout)))
 
+    def wait_cli(self,job,*extra,agent='pi'):
+        import subprocess
+        import sys
+        env={**os.environ,'PULSE_URL':BASE,'PULSE_NETWORK_TOKEN_FILE':str(self.root/(agent+'.token'))}
+        return subprocess.run([sys.executable,str(Path(server.__file__).parent/'pulse'),'network','wait',job['id'],*extra],
+                              env=env,capture_output=True,text=True,timeout=30)
+
+    def test_cli_wait_reports_each_final_state_and_timeout(self):
+        job=self.request('message')
+        timed_out=self.wait_cli(job,'--timeout','1','--interval','0.2')
+        self.assertEqual(timed_out.returncode,2,timed_out.stderr)
+        self.assertIn('last status: queued',timed_out.stderr)
+        self.assertEqual(json.loads(timed_out.stdout)['status'],'queued')
+        claimed=self.claim('wait-session','message')
+        self.clients['codex'].call('POST','/requests/'+job['id']+'/complete',{'session_id':'wait-session','lease':claimed['lease'],
+                                   'result':{'message':'done by recipient'}})
+        done=self.wait_cli(job,'--timeout','5')
+        self.assertEqual(done.returncode,0,done.stderr)
+        self.assertEqual(json.loads(done.stdout)['result']['message'],'done by recipient')
+        cancelled=self.request('message')
+        self.clients['pi'].call('POST','/requests/'+cancelled['id']+'/cancel',{})
+        result=self.wait_cli(cancelled,'--timeout','5')
+        self.assertEqual(result.returncode,1,result.stderr)
+        self.assertEqual(json.loads(result.stdout)['status'],'cancelled')
+
+    def test_cli_wait_rejects_unknown_requests_and_bad_arguments(self):
+        missing=self.wait_cli({'id':'0'*32},'--timeout','5')
+        self.assertEqual(missing.returncode,1)
+        self.assertIn('HTTP 404',missing.stderr)
+        job=self.request('message')
+        for args in (('--interval','0'),('--timeout','-1')):
+            bad=self.wait_cli(job,*args)
+            self.assertEqual(bad.returncode,1,args)
+            self.assertIn('--timeout must be',bad.stderr)
+        stranger=self.wait_cli(job,'--timeout','5',agent='other')
+        self.assertEqual(stranger.returncode,1)
+        self.assertIn('HTTP 404',stranger.stderr)
+        self.assertEqual(stranger.stdout,'')
+
+    def test_wait_for_request_retries_transient_errors_only(self):
+        from network_cli import wait_for_request
+        calls=[]
+        script=[ClientError('Pulse connection unavailable'),ClientError('Bad gateway (HTTP 502)',502),{'status':'leased'},{'status':'completed','n':1}]
+        class Fake:
+            def call(self,method,path):
+                calls.append(path)
+                item=script.pop(0)
+                if isinstance(item,Exception):raise item
+                return item
+        now=[0.0]
+        slept=[]
+        def sleep(n):slept.append(n);now[0]+=n
+        out,code=wait_for_request(Fake(),'abc',timeout=60,interval=3,sleep=sleep,clock=lambda:now[0])
+        self.assertEqual((code,out['n']),(0,1))
+        self.assertEqual(calls,['/requests/abc']*4)
+        self.assertEqual(slept,[3,3,3])
+        class Rejected:
+            def call(self,method,path):raise ClientError('Unauthorized (HTTP 401)',401)
+        with self.assertRaises(ClientError):
+            wait_for_request(Rejected(),'abc',timeout=60,sleep=sleep,clock=lambda:now[0])
+        class Never:
+            def call(self,method,path):return {'status':'queued'}
+        now[0]=0.0;slept.clear()
+        out,code=wait_for_request(Never(),'abc',timeout=7,interval=3,sleep=sleep,clock=lambda:now[0])
+        self.assertEqual((code,out['status'],slept),(2,'queued',[3,3,1]))
+        for final in ('failed','cancelled','expired','interrupted'):
+            class Final:
+                def call(self,method,path,final=final):return {'status':final}
+            self.assertEqual(wait_for_request(Final(),'abc',sleep=sleep)[1],1)
+
     def test_slow_storage_does_not_lock_database_and_revocation_wins(self):
         import threading
         import agent_network
