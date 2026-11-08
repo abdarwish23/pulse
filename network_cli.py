@@ -2,15 +2,45 @@
 import argparse
 import json
 import os
+import sys
+import time
 from contextlib import closing
 from pathlib import Path
 from network_client import Client, ClientError
+
+TERMINAL = ('completed', 'failed', 'cancelled', 'expired', 'interrupted')
+
+
+def wait_for_request(client, request_id, timeout=600, interval=3, sleep=time.sleep, clock=time.monotonic):
+    """Poll a request until it reaches a final state or the timeout passes.
+
+    Returns (request, exit_code): 0 completed, 1 any other final state, 2 timeout.
+    Brief connection failures and server errors are retried; rejected requests
+    (unknown id, bad credential) are raised immediately.
+    """
+    deadline = clock() + timeout
+    last = None
+    while True:
+        try:
+            last = client.call('GET', '/requests/' + request_id)
+        except ClientError as e:
+            if e.status and e.status < 500:
+                raise
+        else:
+            if last.get('status') in TERMINAL:
+                return last, 0 if last['status'] == 'completed' else 1
+        remaining = deadline - clock()
+        if remaining <= 0:
+            return last, 2
+        sleep(min(interval, remaining))
 
 
 def main(argv=None):
     ap=argparse.ArgumentParser(prog='pulse network')
     sub=ap.add_subparsers(dest='cmd',required=True)
     sub.add_parser('agents');sub.add_parser('requests');sub.add_parser('grants');sub.add_parser('artifacts')
+    p=sub.add_parser('wait',help='Wait for a request to finish; exit 0 completed, 1 failed/cancelled/expired/interrupted, 2 timeout')
+    p.add_argument('id');p.add_argument('--timeout',type=float,default=600);p.add_argument('--interval',type=float,default=3)
     for name in ('get','cancel','retry'):
         p=sub.add_parser(name);p.add_argument('id')
         if name=='retry':p.add_argument('--reconciled',action='store_true',required=True)
@@ -65,6 +95,13 @@ def main(argv=None):
             elif a.action=='download':out=c.workspace_download(a.id,a.destination)
             else:out=c.call('DELETE','/workspace/files/'+c.workspace_id(a.id),{})
         elif a.cmd=='get':out=c.call('GET','/requests/'+a.id)
+        elif a.cmd=='wait':
+            if a.timeout<0 or a.interval<=0:raise SystemExit('--timeout must be >= 0 and --interval > 0')
+            out,code=wait_for_request(c,a.id,a.timeout,a.interval)
+            if code==2:print('Timed out waiting for request '+a.id+('; last status: '+out['status'] if out else '; no response received'),file=sys.stderr)
+            print(json.dumps(out,indent=2))
+            if code:raise SystemExit(code)
+            return
         elif a.cmd in ('cancel','retry'):out=c.call('POST','/requests/'+a.id+'/'+a.cmd,{'reconciled':True} if a.cmd=='retry' else {})
         elif a.cmd in ('request-file','message'):
             out=c.call('POST','/requests',{'recipient':a.recipient,'kind':'message' if a.cmd=='message' else 'file.list' if a.list else 'file.read',

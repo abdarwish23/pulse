@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Add `pulse network wait REQUEST_ID` so agents can block until a sent request completes, fails, is cancelled, expires or is interrupted, with a timeout and exit codes instead of hand-written polling loops.
+
 ## 1.2.0 — 2026-11-05
 
 - Add native Windows and macOS platform support and a manual qualification matrix

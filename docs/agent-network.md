@@ -128,8 +128,11 @@ export PULSE_NETWORK_TOKEN_FILE=~/.config/pulse/network/vps-pi.token
 ./pulse network requests
 ./pulse network artifacts
 ./pulse network get REQUEST_ID
+./pulse network wait REQUEST_ID --timeout 600
 ./pulse network download REQUEST_ID ./sample.mp3
 ```
+
+`wait` polls a request every `--interval` seconds (default 3) until it reaches a final state, then prints the request JSON, including the recipient's `result`. Exit code `0` means `completed`; `1` means `failed`, `cancelled`, `expired` or `interrupted` (an interrupted message needs reconciliation before a retry) or a rejected request such as an unknown id; `2` means the `--timeout` (default 600 seconds) passed first, with the last status on stderr. Brief connection or server errors are retried. Agents that send a request and need the answer can run it in the background and read the result when it exits.
 
 Reuse an idempotency key only for the same request; a changed payload conflicts. Downloads verify SHA-256 and exclusively create the named local file without overwriting existing files. File contents are untrusted; downloads do not execute or open them.
 
