@@ -144,6 +144,7 @@ Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step 
 |---|---|
 | [Windows, macOS and Linux](docs/platforms.md) | native setup, agent clients, file paths and qualification |
 | [Deployment](docs/deployment.md) | systemd service, HTTPS options, backups, updating |
+| [Installation prompt](docs/installation-prompt.md) | copy-paste brief for an agent that installs, connects, imports projects and verifies Pulse |
 | [Configuration](docs/configuration.md) | every `config.json` option |
 | [Agents, MCP and CLI](docs/agents.md) | connect agents, tool reference, CLI |
 | [Integrations](docs/integrations.md) | Telegram, GitHub issue sync, Obsidian mirror, external memory |

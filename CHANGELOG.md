@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Add `pulse network wait REQUEST_ID` so agents can block until a sent request completes, fails, is cancelled, expires or is interrupted, with a timeout and exit codes instead of hand-written polling loops.
+- Add `docs/installation-prompt.md`, a copy-paste installation and agent-integration brief covering deployment choice, HTTPS access, agent enrollment, automatic tasks, project import, the Pulse-first policy, recovery and acceptance tests.
 
 ## 1.2.0 — 2026-11-05
 
