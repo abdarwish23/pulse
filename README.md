@@ -77,6 +77,19 @@ py -3 -m venv .venv
 
 Open <http://127.0.0.1:4100>, sign in, done.
 
+**Or let an AI agent do the install.** Paste this into Claude Code, Codex, Pi or another
+coding agent that can run commands:
+
+```text
+Read https://raw.githubusercontent.com/abdarwish23/pulse/main/docs/installation-prompt.md
+and install Pulse from https://github.com/abdarwish23/pulse by following that brief.
+Ask me before choosing the domain, remote access method or unattended execution scope.
+```
+
+The brief also covers HTTPS access, connecting your agents, importing your existing
+projects, the Pulse-first instruction block, recovery supervision and the acceptance
+tests to run. The full text is [docs/installation-prompt.md](docs/installation-prompt.md).
+
 **Just looking?** Run `python3 scripts/demo.py` and open <http://127.0.0.1:4101>. It starts with sample data in a temporary folder and leaves your real install alone.
 
 ## Connect your AI agents
