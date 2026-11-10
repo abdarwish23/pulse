@@ -50,8 +50,9 @@ def detect_timezone():
         return "UTC"
 
 
-def load_config():
-    cfg = json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
+def load_config_from(raw):
+    """Apply Pulse's config defaults to an already-parsed config object."""
+    cfg = dict(raw or {})
     cfg.setdefault("host", "127.0.0.1")
     cfg.setdefault("port", 4100)
     cfg.setdefault("timezone", "")            # empty = server's timezone
@@ -72,11 +73,21 @@ def load_config():
     return cfg
 
 
-CONFIG = load_config()
+def load_config():
+    raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8")) if CONFIG_PATH.exists() else {}
+    return load_config_from(raw)
 
-# Tokens are the one part of the config that must take effect without a restart:
-# `add-token` writes the file, and the running server picks the new token up on the
-# next request (one stat per authenticated call; re-parsed only when the file moves).
+
+# Every config read goes through the file, so editing config.json takes effect on the
+# next request instead of the next restart: one stat per read, re-parsed only when the
+# file moves, and a broken or half-written file keeps the last good values.
+# `host`, `port` and `timezone` are bound at start-up (socket, ZoneInfo) and still need
+# a restart; everything else is live.
+CONFIG = effects.LiveConfig(effects.JsonSnapshot(CONFIG_PATH, load_config_from,
+                                                 default=load_config_from({}), label="config"))
+
+# Agents also get a dedicated view: an added or revoked token is accepted/refused on
+# the next request, which keeps enrollment from interrupting running agent sessions.
 TOKENS = effects.JsonSnapshot(CONFIG_PATH, lambda cfg: dict((cfg or {}).get("tokens") or {}),
                               default={}, label="tokens")
 
@@ -1794,7 +1805,7 @@ def main():
         cfg = load_config()
         cfg["password_hash"] = hash_password(ask_password())
         save_config(cfg)
-        return print("Password updated. Restart Pulse to apply.")
+        return print("Password updated. Active immediately; existing browser sessions are signed out.")
     if cmd == "add-token":
         need_name = sys.argv[2] if len(sys.argv) > 2 else "agent"
         cfg = load_config()

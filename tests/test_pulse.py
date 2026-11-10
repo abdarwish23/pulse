@@ -19,7 +19,15 @@ import server  # noqa: E402
 SENT = []
 server.telegram_send = SENT.append          # never talk to Telegram
 server.Handler.log_message = lambda *a: None
-server.CONFIG["password_hash"] = server.hash_password("correct horse", iterations=1000)
+def set_config(**values):
+    """Change config the way the system does: write the file, which the server reads live."""
+    cfg = server.load_config()
+    cfg.update(values)
+    server.save_config(cfg)
+    return cfg
+
+
+set_config(password_hash=server.hash_password("correct horse", iterations=1000))
 server.init_db()
 threading.Thread(target=server.worker, daemon=True).start()
 SRV = server.ThreadingHTTPServer(("127.0.0.1", 0), server.Handler)
@@ -129,12 +137,12 @@ class AuthTests(unittest.TestCase):
         self.assertEqual(call("GET", "/api/me", token=None, headers={"Cf-Ray": "x"})["HTTP"], 401)
 
     def test_trust_localhost_ignores_proxied_requests(self):
-        server.CONFIG["trust_localhost"] = True
+        set_config(trust_localhost=True)
         try:
             self.assertEqual(call("GET", "/api/me", token=None)["role"], "user")
             self.assertEqual(call("GET", "/api/me", token=None, headers={"X-Forwarded-For": "1.2.3.4"})["HTTP"], 401)
         finally:
-            server.CONFIG["trust_localhost"] = False
+            set_config(trust_localhost=False)
 
 
 class ProjectTests(unittest.TestCase):

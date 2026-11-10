@@ -1,4 +1,4 @@
-"""Reversible effects (Scope, JsonSnapshot) plus token hot-reload, end to end.
+"""Reversible effects (Scope, JsonSnapshot, LiveConfig), with live-reload end-to-end tests.
 
 Run: python3 -m unittest discover -s tests -v
 """
@@ -90,7 +90,7 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(len(scope), 2)
 
 
-class JsonSnapshotTests(unittest.TestCase):
+class _FileCase(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.path = Path(self.dir.name, "config.json")
@@ -102,8 +102,10 @@ class JsonSnapshotTests(unittest.TestCase):
     def write(self, obj):
         tmp = Path(self.path.parent, ".tmp-write")
         tmp.write_text(json.dumps(obj))
-        os.replace(tmp, self.path)  # same atomic replace as server.save_config
+        os.replace(tmp, self.path)  # the same atomic replace as server.save_config
 
+
+class JsonSnapshotTests(_FileCase):
     def snap(self):
         return effects.JsonSnapshot(self.path, lambda cfg: dict((cfg or {}).get("tokens") or {}), default={})
 
@@ -149,27 +151,80 @@ class JsonSnapshotTests(unittest.TestCase):
         self.assertEqual(s.errors, 1)
 
 
+class LiveConfigTests(_FileCase):
+    def cfg(self, default=None):
+        snap = effects.JsonSnapshot(self.path, lambda raw: dict(raw or {}), default=default or {})
+        return effects.LiveConfig(snap)
+
+    def test_reads_follow_the_file(self):
+        cfg = self.cfg()
+        self.assertEqual(cfg["tokens"], {"a": "alpha"})
+        self.write({"tokens": {"a": "alpha"}, "public_url": "https://example.test"})
+        self.assertEqual(cfg["public_url"], "https://example.test")
+        self.assertEqual(cfg.get("missing", "fallback"), "fallback")
+        self.assertIn("tokens", cfg)
+        self.assertEqual(list(cfg.keys()), ["tokens", "public_url"])
+        self.assertEqual(len(cfg), 2)
+
+    def test_process_local_override_does_not_touch_the_file(self):
+        cfg = self.cfg()
+        cfg["port"] = 1
+        self.assertEqual(cfg["port"], 1)
+        self.assertEqual(cfg.overrides(), ["port"])
+        self.assertEqual(json.loads(self.path.read_text())["tokens"], {"a": "alpha"})  # file unchanged
+        del cfg["port"]
+        self.assertNotIn("port", cfg.overrides())
+        self.assertEqual(cfg["tokens"], {"a": "alpha"})
+
+    def test_file_change_wins_over_an_override(self):
+        cfg = self.cfg()
+        cfg["public_url"] = "https://override.test"
+        self.assertEqual(cfg["public_url"], "https://override.test")
+        self.write({"tokens": {"a": "alpha"}, "public_url": "https://file.test"})
+        self.assertEqual(cfg["public_url"], "https://file.test")
+        self.assertEqual(cfg.overrides(), [])
+
+    def test_mapping_helpers_used_by_patch_dict(self):
+        import unittest.mock as mock
+        cfg = self.cfg()
+        with mock.patch.dict(cfg, {"trusted_proxies": ["127.0.0.1/32"]}):
+            self.assertEqual(cfg["trusted_proxies"], ["127.0.0.1/32"])
+            self.assertEqual(cfg["tokens"], {"a": "alpha"})
+        self.assertNotIn("trusted_proxies", cfg)  # the override is gone again
+        cfg.update({"port": 9})
+        self.assertEqual(cfg.copy()["port"], 9)
+        cfg.clear()
+        self.assertEqual(cfg["tokens"], {"a": "alpha"})
+
+    def test_malformed_file_keeps_the_last_good_config(self):
+        cfg = self.cfg()
+        self.path.write_text("{ broken")
+        self.assertEqual(cfg["tokens"], {"a": "alpha"})
+
+
 def _free_port():
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
-class TokenHotReloadTest(unittest.TestCase):
-    """A token added while the server runs must work on the very next request."""
+class _ServerCase(unittest.TestCase):
+    """A real `server.py serve` subprocess with its own config file and database."""
+
+    config = {}
 
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
         self.port = _free_port()
         self.cfg_path = Path(self.dir.name, "config.json")
         self.cfg = {"host": "127.0.0.1", "port": self.port, "timezone": "UTC", "secret": "s" * 64,
-                    "tokens": {"first-token": "first"}, "telegram": {"enabled": False}}
-        self._save()
+                    "telegram": {"enabled": False}, **self.config}
+        self.save()
         env = {**os.environ, "PULSE_CONFIG": str(self.cfg_path),
                "PULSE_DB": str(Path(self.dir.name, "pulse.db"))}
         self.proc = subprocess.Popen([sys.executable, str(ROOT / "server.py"), "serve"], env=env,
                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        self._wait_healthy()
+        self.wait_healthy()
 
     def tearDown(self):
         self.proc.terminate()
@@ -181,12 +236,12 @@ class TokenHotReloadTest(unittest.TestCase):
         self.proc.stderr.close()
         self.dir.cleanup()
 
-    def _save(self):
+    def save(self):
         tmp = Path(self.dir.name, ".pulse-config-test")
         tmp.write_text(json.dumps(self.cfg))
-        os.replace(tmp, self.cfg_path)
+        os.replace(tmp, self.cfg_path)  # exactly what `server.py add-token` does
 
-    def _wait_healthy(self):
+    def wait_healthy(self):
         deadline = time.time() + 20
         while time.time() < deadline:
             if self.proc.poll() is not None:
@@ -198,32 +253,68 @@ class TokenHotReloadTest(unittest.TestCase):
                 time.sleep(0.05)
         self.fail("server did not become healthy")
 
-    def _status(self, token, path="/api/projects"):
-        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}")
-        req.add_header("Authorization", "Bearer " + token)
+    def request(self, path, token=None, method="GET"):
+        req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", method=method)
+        if token:
+            req.add_header("Authorization", "Bearer " + token)
         try:
             with urllib.request.urlopen(req, timeout=5) as r:
-                return r.status
+                return r.status, json.load(r)
         except urllib.error.HTTPError as e:
-            return e.code
+            return e.code, json.load(e)
+
+    def status(self, path, token=None):
+        return self.request(path, token)[0]
+
+
+class TokenHotReloadTest(_ServerCase):
+    """A token added while the server runs must work on the very next request."""
+
+    config = {"tokens": {"first-token": "first"}}
 
     def test_added_token_works_without_restart(self):
-        self.assertEqual(self._status("first-token"), 200)
-        self.assertEqual(self._status("second-token"), 401)
+        self.assertEqual(self.status("/api/projects", "first-token"), 200)
+        self.assertEqual(self.status("/api/projects", "second-token"), 401)
 
-        # exactly what `python3 server.py add-token second` does to the file
-        self.cfg["tokens"]["second-token"] = "second"
-        self._save()
+        self.cfg["tokens"]["second-token"] = "second"  # `server.py add-token second`
+        self.save()
 
-        self.assertEqual(self._status("second-token"), 200)
-        self.assertEqual(self._status("first-token"), 200)  # the old token still works
-        self.assertEqual(self._status("bogus-token"), 401)
+        self.assertEqual(self.status("/api/projects", "second-token"), 200)
+        self.assertEqual(self.status("/api/projects", "first-token"), 200)  # old token still valid
+        self.assertEqual(self.status("/api/projects", "bogus-token"), 401)
 
     def test_removed_token_stops_working_without_restart(self):
-        self.assertEqual(self._status("first-token"), 200)
+        self.assertEqual(self.status("/api/projects", "first-token"), 200)
         del self.cfg["tokens"]["first-token"]
-        self._save()
-        self.assertEqual(self._status("first-token"), 401)
+        self.save()
+        self.assertEqual(self.status("/api/projects", "first-token"), 401)
+
+
+class ConfigHotReloadTest(_ServerCase):
+    """Any config value must be read from the file, not from start-up state."""
+
+    config = {"tokens": {"first-token": "first"}, "github_poll_seconds": 300}
+
+    def test_cloudflare_access_switch_flips_without_restart(self):
+        self.assertEqual(self.request("/api/auth")[1]["cloudflare"], False)
+        self.cfg["access_team"] = "team"
+        self.cfg["access_aud"] = "aud"
+        self.save()
+        self.assertEqual(self.request("/api/auth")[1]["cloudflare"], True)
+
+    def test_local_owner_trust_flips_without_restart(self):
+        self.assertEqual(self.status("/api/me"), 401)  # no token, no password, no trust
+        self.cfg["trust_localhost"] = True
+        self.save()
+        self.assertEqual(self.status("/api/me"), 200)
+        self.cfg["trust_localhost"] = False
+        self.save()
+        self.assertEqual(self.status("/api/me"), 401)
+
+    def test_malformed_config_does_not_lock_the_server_out(self):
+        self.assertEqual(self.status("/api/projects", "first-token"), 200)
+        self.cfg_path.write_text("{ broken json")
+        self.assertEqual(self.status("/api/projects", "first-token"), 200)  # last good config kept
 
 
 if __name__ == "__main__":

@@ -1,7 +1,14 @@
 # Configuration
 
 All settings live in `config.json` next to `server.py` (or the path in `PULSE_CONFIG`).
-`python3 server.py init` creates it; restart Pulse after editing.
+`python3 server.py init` creates it.
+
+**Most settings take effect on the next request — no restart.** Pulse reads the file through
+a change-checked snapshot (`effects.LiveConfig`): one `stat` per read, re-parsed only when the
+file moves, and a broken or half-written file keeps the last good values. Exceptions, bound at
+start-up: `host` and `port` (the listening socket) and `timezone` (used to build reminder dates).
+A change to `github_poll_seconds` applies from the next poll cycle. Agent tokens can be added or
+revoked with `python3 server.py add-token <name>` / by deleting the entry, both without a restart.
 
 | Key | Default | What it does |
 |---|---|---|

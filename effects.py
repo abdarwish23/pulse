@@ -18,7 +18,7 @@ import sys
 import threading
 from pathlib import Path
 
-__all__ = ["Scope", "JsonSnapshot"]
+__all__ = ["Scope", "JsonSnapshot", "LiveConfig"]
 
 
 def _warn(text):
@@ -192,3 +192,102 @@ class JsonSnapshot:
 
     def __repr__(self):
         return f"<JsonSnapshot {self.label}: {self.reloads} reload(s), {self.errors} error(s)>"
+
+
+class LiveConfig:
+    """Dict-like, live view over a :class:`JsonSnapshot`, with process-local overrides.
+
+    Reads always follow ``config.json``, so an edit to the file applies on the next
+    request instead of the next restart — without changing a single call site.
+    Writing through this object (``CONFIG["x"] = y``) deliberately does *not* touch
+    the file: it sets a process-local override, and the next file change clears it
+    again, so the file always wins. Use overrides for tests and one-off experiments;
+    real changes go through ``save_config`` so the file stays the source of truth.
+    """
+
+    def __init__(self, snapshot):
+        self._snapshot = snapshot
+        self._lock = threading.RLock()
+        self._overrides = {}
+        self._seen = snapshot.reloads
+
+    # -- reads ---------------------------------------------------------------
+    def data(self):
+        """The config as this process sees it now (do not mutate the result)."""
+        base = self._snapshot.get()  # refresh first: a reload is what makes the file win
+        with self._lock:
+            if self._snapshot.reloads != self._seen:  # the file moved: the file wins
+                self._overrides.clear()
+                self._seen = self._snapshot.reloads
+            if not self._overrides:
+                return base
+            merged = dict(base)
+            merged.update(self._overrides)
+            return merged
+
+    def __getitem__(self, key):
+        return self.data()[key]
+
+    def get(self, key, default=None):
+        return self.data().get(key, default)
+
+    def __contains__(self, key):
+        return key in self.data()
+
+    def __iter__(self):
+        return iter(self.data())
+
+    def __len__(self):
+        return len(self.data())
+
+    def keys(self):
+        return self.data().keys()
+
+    def items(self):
+        return self.data().items()
+
+    def values(self):
+        return self.data().values()
+
+    def copy(self):
+        return self.data()
+
+    # -- process-local overrides (never written to the file) -----------------
+    def __setitem__(self, key, value):
+        with self._lock:
+            self._seen = self._snapshot.reloads
+            self._overrides[key] = value
+
+    def __delitem__(self, key):
+        with self._lock:
+            self._seen = self._snapshot.reloads
+            del self._overrides[key]
+
+    def update(self, *args, **kwargs):
+        with self._lock:
+            self._seen = self._snapshot.reloads
+            self._overrides.update(*args, **kwargs)
+
+    def setdefault(self, key, default=None):
+        if key not in self:
+            self[key] = default
+        return self[key]
+
+    def pop(self, key, *default):
+        with self._lock:
+            self._seen = self._snapshot.reloads
+            return self._overrides.pop(key, *default)
+
+    def clear(self):
+        with self._lock:
+            self._seen = self._snapshot.reloads
+            self._overrides.clear()
+
+    # -- introspection -------------------------------------------------------
+    def overrides(self):
+        """Keys currently overridden in this process (empty when the file leads)."""
+        with self._lock:
+            return sorted(self._overrides)
+
+    def __repr__(self):
+        return f"<LiveConfig {self._snapshot!r} overrides={self.overrides()}>"

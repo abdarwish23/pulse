@@ -4,6 +4,7 @@
 
 - Add `pulse network wait REQUEST_ID` so agents can block until a sent request completes, fails, is cancelled, expires or is interrupted, with a timeout and exit codes instead of hand-written polling loops.
 - Add `effects.py`, a reversible-effect primitive (`Scope` with LIFO disposers, `JsonSnapshot` for change-checked config values), and make agent tokens hot-reloadable: `add-token` and token removal now take effect on the next request instead of needing a restart.
+- Make the whole configuration hot-reloadable: `CONFIG` is now a live view (`effects.LiveConfig`) over a change-checked snapshot, so Telegram, `public_url`, polling cadence, the notes mirror, memory backend, password, Cloudflare Access and proxy settings all apply on the next request. Only `host`, `port` and `timezone` still need a restart; a broken config file keeps the last good values.
 - Add `docs/installation-prompt.md`, a copy-paste installation and agent-integration brief covering deployment choice, HTTPS access, agent enrollment, automatic tasks, project import, the Pulse-first policy, recovery and acceptance tests.
 
 ## 1.2.0 — 2026-11-05
