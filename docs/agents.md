@@ -46,7 +46,7 @@ args = ["/path/to/pulse/pulse_mcp.py", "--agent", "codex"]
 
 Agents on your laptop or desktop can use the same Pulse your server runs, so everything stays in one place.
 
-1. On the server, create a token for that machine: `python3 server.py add-token laptop` (restart Pulse to apply).
+1. On the server, create a token for that machine: `python3 server.py add-token laptop` (active immediately, no restart needed).
 2. On the other machine, copy `pulse_mcp.py` and `pulse` (or clone the repo). They need only Python 3.10+.
 3. Point them at your Pulse:
 

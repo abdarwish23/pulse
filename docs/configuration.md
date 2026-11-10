@@ -10,7 +10,7 @@ All settings live in `config.json` next to `server.py` (or the path in `PULSE_CO
 | `timezone` | server timezone | IANA name such as `"Europe/Berlin"` or `"America/New_York"`. Reminders, due dates and "today" use it. |
 | `password_hash` | `""` | Web password (PBKDF2-SHA256). Set with `python3 server.py set-password`. Changing it signs everyone out. |
 | `secret` | random | Signs session cookies. Created by `init`. |
-| `tokens` | `{}` | Agent tokens: `{"<token>": "<name>"}`. Add with `python3 server.py add-token <name>`. |
+| `tokens` | `{}` | Agent tokens: `{"<token>": "<name>"}`. Add with `python3 server.py add-token <name>`; a new or removed token takes effect on the next request, without a restart. |
 | `trust_localhost` | `false` | Treat direct (non-proxied) requests from 127.0.0.1 as the owner, with no password. Single-user machines only. |
 | `trusted_proxies` | `[]` | IPs/CIDRs allowed to supply a client IP for login throttling. Empty means use the socket peer. See deployment for header sanitization requirements. |
 | `client_ip_header` | `"X-Forwarded-For"` | Trusted proxy header: `X-Forwarded-For` (walk right to left to the first untrusted hop) or `Cf-Connecting-Ip` (only behind a proxy that overwrites it). |

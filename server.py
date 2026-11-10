@@ -24,6 +24,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from urllib.parse import urlparse, parse_qs
 import agent_network
+import effects
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("PULSE_DB") or ROOT / "data" / "pulse.db")
@@ -72,6 +73,12 @@ def load_config():
 
 
 CONFIG = load_config()
+
+# Tokens are the one part of the config that must take effect without a restart:
+# `add-token` writes the file, and the running server picks the new token up on the
+# next request (one stat per authenticated call; re-parsed only when the file moves).
+TOKENS = effects.JsonSnapshot(CONFIG_PATH, lambda cfg: dict((cfg or {}).get("tokens") or {}),
+                              default={}, label="tokens")
 
 
 def now():
@@ -1445,7 +1452,7 @@ class Handler(BaseHTTPRequestHandler):
         auth = self.headers.get("Authorization", "")
         tok = auth[7:].strip() if auth.startswith("Bearer ") else ""
         if tok:
-            name = next((n for t, n in CONFIG["tokens"].items() if hmac.compare_digest(t, tok)), None)
+            name = next((n for t, n in TOKENS.get().items() if hmac.compare_digest(t, tok)), None)
             need(name, "invalid token", 401)
             # token holders may name the specific agent (codex, pi, claude...) for the timeline
             alias = re.sub(r"[^a-z0-9_.-]", "", self.headers.get("X-Pulse-Agent", "").lower())[:24]
@@ -1793,7 +1800,7 @@ def main():
         cfg = load_config()
         tok = add_token(cfg, need_name)
         save_config(cfg)
-        return print(f"Token for '{need_name}' (restart Pulse to apply):\n{tok}")
+        return print(f"Token for '{need_name}' (active immediately, no restart needed):\n{tok}")
     if cmd != "serve":
         sys.exit(__doc__)
     if not CONFIG_PATH.exists():
