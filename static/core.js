@@ -8,6 +8,7 @@ const COLNAME = Object.fromEntries(COLS.map(([k, l]) => [k, l]));
 const OWNERS = {me: "Action on me", agent: "Action on agent", financial: "Financial / budget", external: "External / third party", other: "Other"};
 const STALE_DAYS = 7;
 let projects = [], current = null, drag = null;
+let ME = {name: "", role: "agent", social_posting: false};   // set on load from /api/me
 
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const safeUrl = u => /^https?:\/\//i.test(u || "") ? u : "";
@@ -80,7 +81,9 @@ const ICONS = {
 };
 const icon = (n, cls = "ic") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n]}</svg>`;
 const SECTIONS = [["today", "Today", "#/"], ["projects", "Projects", "#/projects"], ["notes", "Notes", "#/notes"],
-  ["todos", "Todos", "#/todos"], ["reminders", "Reminders", "#/reminders"], ["memory", "Memory", "#/memory"], ["network", "Agents", "#/agents"]];
+  ["todos", "Todos", "#/todos"], ["reminders", "Reminders", "#/reminders"], ["memory", "Memory", "#/memory"],
+  ["social", "Social", "#/social"], ["network", "Agents", "#/agents"]];
+const ICONS_SOCIAL = '<path d="M4 4h16v12H4zM8 20h8M12 16v4M8 8h8M8 11h5"/>';
 const PRIO = {1: "high", 2: "normal", 3: "low"};
 const lockMark = x => x.private ? `<span class="lock" title="Private: hidden from agents">${icon("lock", "ic xs")}</span>` : "";
 
@@ -126,7 +129,9 @@ function md(src) {
 
 // ---------- navigation + router ----------
 function renderNav(active) {
-  const links = SECTIONS.map(([k, l, h]) => `<a class="nav-i ${active === k ? "on" : ""}" href="${h}">${icon(k)}<span>${l}</span></a>`).join("");
+  const sections = SECTIONS.filter(([k]) => k !== "social" || ME.social_posting);
+  const links = sections.map(([k, l, h]) =>
+    `<a class="nav-i ${active === k ? "on" : ""}" href="${h}">${k === "social" ? `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS_SOCIAL}</svg>` : icon(k)}<span>${l}</span></a>`).join("");
   $("#nav").innerHTML = links; $("#bnav").innerHTML = links;
   $("#tabs").style.display = active === "projects" ? "" : "none";
 }
@@ -152,6 +157,7 @@ async function route() {
     else if ((m = h.match(/^#\/todos(?:\/(\d+))?/))) { renderNav("todos"); await renderTodos(m[1]); }
     else if (h.startsWith("#/reminders")) { renderNav("reminders"); await renderReminders(); }
     else if (h.startsWith("#/memory")) { renderNav("memory"); await renderMemory(); }
+    else if (h.startsWith("#/social")) { renderNav("social"); await renderSocial(); }
     else if (h.startsWith("#/agents")) { renderNav("network"); await renderNetwork(); }
     else if (h.startsWith("#/inbox")) { renderNav(""); await renderInbox(); }
     else { renderNav("today"); await renderToday(); }
@@ -164,6 +170,6 @@ addEventListener("hashchange", () => { route(); scrollTo(0, 0); });
 document.addEventListener("visibilitychange", () => { if (!document.hidden && idle()) route(); });
 setInterval(() => { if (!document.hidden && idle()) route(); }, 30000);
 document.addEventListener("DOMContentLoaded", () => {
-  api("GET", "/me").then(m => { $("#me").textContent = m.name; $("#me").title = "Sign out"; $("#me").onclick = () => confirm("Sign out?") && signOut(); }).catch(() => {});
+  api("GET", "/me").then(m => { ME = m; $("#me").textContent = m.name; $("#me").title = "Sign out"; $("#me").onclick = () => confirm("Sign out?") && signOut(); }).catch(() => {});
   route();
 });

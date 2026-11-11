@@ -183,6 +183,19 @@ label.ck input{width:auto}
 .todo.done .tt{color:var(--mut);text-decoration:line-through}
 .tm{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px;font-size:12px;align-items:center}
 .due{font-size:12px;color:var(--mut)}.due.now{color:var(--paused)}.due.late{color:var(--blocked);font-weight:600}
+/* social posts */
+.sboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;align-items:start}
+.scol{min-height:120px}.scol h3 .sm{display:block;text-transform:none;letter-spacing:0}
+.spost{display:flex;flex-direction:column;gap:6px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:8px;cursor:default}
+.spost .st{white-space:pre-wrap;word-break:break-word}
+.smedia{max-width:100%;max-height:160px;border-radius:8px;object-fit:cover}
+.spost .sm{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px}
+.sactions{display:flex;gap:6px;flex-wrap:wrap}
+.mini{font-size:12px;padding:3px 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.mini:hover{border-color:var(--acc)}
+.chip.ok{color:var(--active, #2da44e);font-weight:600}
+#sform textarea[name=text]{flex:1 1 100%}
+.scol p.mut{margin:4px 0}
 /* notes */
 .notes{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
 .nlist{position:sticky;top:70px;max-height:calc(100vh - 90px);overflow:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px}

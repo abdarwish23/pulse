@@ -21,5 +21,6 @@
   },
   "github_poll_seconds": 300,
   "notes_mirror_dir": "",
-  "memory_backend": "builtin"
+  "memory_backend": "builtin",
+  "social_posting": false
 }

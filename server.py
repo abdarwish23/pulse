@@ -31,6 +31,12 @@ DB_PATH = Path(os.environ.get("PULSE_DB") or ROOT / "data" / "pulse.db")
 STATIC = ROOT / "static"
 CONFIG_PATH = Path(os.environ.get("PULSE_CONFIG") or ROOT / "config.json")
 STATUSES = ("idea", "active", "blocked", "paused", "done")
+# Social posts pipeline (optional; config key social_posting). The owner moves a
+# post into `approved`; agents may create drafts and schedule approved posts.
+SOCIAL_COLUMNS = {"draft": "Drafts", "approved": "Approved", "scheduled": "Scheduled", "posted": "Posted"}
+SOCIAL_PLATFORMS = {"linkedin": 3000, "x": 280}   # platform -> max text length
+SOCIAL_MAX_MEDIA = 12 * 1024 * 1024               # bytes per uploaded image
+SOCIAL_MEDIA_DIR = "social_media"
 # Kanban columns, left to right. Fixed: every project has exactly these five.
 COLUMNS = {"ideas": "Ideas", "todo": "To do", "doing": "In progress", "done": "Done", "blocked": "Blocked"}
 BLOCK_OWNERS = {"me": "Action on me", "agent": "Action on agent", "financial": "Financial / budget",
@@ -70,6 +76,7 @@ def load_config_from(raw):
     cfg.setdefault("github_poll_seconds", 300)
     cfg.setdefault("memory_backend", "builtin")  # or "bridge" (external memory.mjs via memory_bridge.mjs)
     cfg.setdefault("notes_mirror_dir", "")    # optional read-only Markdown copy of notes (e.g. for Obsidian)
+    cfg.setdefault("social_posting", False)   # optional social posts page (drafts/approval/scheduling); see docs/social-posting.md
     return cfg
 
 
@@ -245,6 +252,21 @@ def init_db():
             """)
 
         agent_network.migrate(con)
+        if con.execute("PRAGMA user_version").fetchone()[0] < 10:
+            # v10: social posts pipeline (optional; gated by config.social_posting).
+            # Runs after agent_network/shared_workspace migrations: the user_version
+            # counter is shared across modules (network uses 7-8, workspace 9).
+            con.executescript("""
+            CREATE TABLE social_posts(
+              id INTEGER PRIMARY KEY, platform TEXT NOT NULL DEFAULT 'linkedin',
+              text TEXT NOT NULL, media TEXT NOT NULL DEFAULT '[]',
+              status TEXT NOT NULL DEFAULT 'draft', due_at INTEGER,
+              scheduled_by TEXT NOT NULL DEFAULT '', posted_id TEXT NOT NULL DEFAULT '',
+              error TEXT NOT NULL DEFAULT '', created_by TEXT NOT NULL DEFAULT '',
+              created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, posted_at INTEGER);
+            CREATE INDEX social_posts_status_due ON social_posts(status, due_at);
+            PRAGMA user_version=10;
+            """)
 
 
 # ---------- Cloudflare Access JWT verification (RS256, stdlib only) ----------
@@ -1243,6 +1265,167 @@ def memory_builtin(con, op, a):
     raise ApiError(404, "unknown memory operation")
 
 
+# ---------- social posts (optional; config key social_posting) ----------
+
+def social_out(p):
+    p = dict(p)
+    p["media"] = json.loads(p["media"])
+    p["due_local"] = datetime.fromtimestamp(p["due_at"], TZ).strftime("%Y-%m-%d %H:%M") if p["due_at"] else ""
+    return p
+
+
+def _get_social(con, pid):
+    p = con.execute("SELECT * FROM social_posts WHERE id=?", (pid,)).fetchone()
+    need(p, "post not found", 404)
+    return p
+
+
+def _social_platform_check(platform, text):
+    need(platform in SOCIAL_PLATFORMS, f"platform must be one of {', '.join(SOCIAL_PLATFORMS)}")
+    need(len(text) <= SOCIAL_PLATFORMS[platform],
+         f"text too long for {platform} ({len(text)} > {SOCIAL_PLATFORMS[platform]} chars)")
+
+
+def _social_media_file(pid, n, filename):
+    """Validate and return the stored path for an uploaded media file."""
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(filename))[:80]
+    ext = os.path.splitext(safe)[1].lower()
+    need(ext in (".png", ".jpg", ".jpeg", ".webp", ".gif"), "only png/jpg/jpeg/webp/gif images are supported")
+    folder = DB_PATH.parent / SOCIAL_MEDIA_DIR
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    return folder / f"{pid}-{n}-{safe}"
+
+
+def save_social(con, b, who, role="agent"):
+    """Create a draft social post. Any role may propose one; only the owner approves."""
+    platform = (clean_str(b.get("platform", ""), "platform", 20) or "linkedin").lower()
+    raw = b.get("text")
+    need(isinstance(raw, str), "text must be a string")
+    text = raw.strip()
+    need(text, "text required")
+    _social_platform_check(platform, text)   # reject oversize text instead of silently truncating
+    pid = con.execute(
+        "INSERT INTO social_posts(platform,text,media,status,created_by,created_at,updated_at)"
+        " VALUES(?,?,?,'draft',?,?,?)",
+        (platform, text, "[]", who, now(), now())).lastrowid
+    for n, m in enumerate(b.get("media") or []):
+        _social_media_add(con, pid, n, m)
+    return social_out(_get_social(con, pid))
+
+
+def _social_media_add(con, pid, n, m):
+    need(isinstance(m, dict), "media entries must be objects with filename and data_b64")
+    filename = clean_str(m.get("filename", ""), "filename", 200)
+    data = m.get("data_b64")
+    need(isinstance(data, str), "data_b64 (base64) required")
+    try:
+        raw = base64.b64decode(data, validate=True)
+    except ValueError:
+        raise ApiError(400, "invalid base64 media data")
+    need(len(raw) <= SOCIAL_MAX_MEDIA, f"media file too large (max {SOCIAL_MAX_MEDIA // (1024 * 1024)} MB)", 413)
+    path = _social_media_file(pid, n, filename)
+    path.write_bytes(raw)
+    defer(os.chmod, path, 0o600)
+    media = json.loads(con.execute("SELECT media FROM social_posts WHERE id=?", (pid,)).fetchone()[0])
+    media.append(path.name)
+    con.execute("UPDATE social_posts SET media=?, updated_at=? WHERE id=?", (json.dumps(media), now(), pid))
+
+
+def social_route(h, con, method, parts, q, who, role):
+    """Returns (code, body) or None if not a social route. Disabled unless config.social_posting."""
+    if not parts or parts[0] != "social":
+        return None
+    need(bool(CONFIG["social_posting"]), "social posting is disabled (set config.social_posting=true)", 404)
+
+    if len(parts) == 1 and method == "GET":
+        rows = con.execute("SELECT * FROM social_posts ORDER BY created_at DESC, id DESC LIMIT 300").fetchall()
+        return 200, [social_out(r) for r in rows]
+    if len(parts) == 1 and method == "POST":
+        return 201, save_social(con, h.body(), who, role)
+
+    if parts == ["social", "due"] and method == "GET":
+        rows = con.execute("SELECT * FROM social_posts WHERE status='scheduled' AND due_at<=? ORDER BY due_at LIMIT 10",
+                           (now(),)).fetchall()
+        return 200, [social_out(r) for r in rows]
+
+    if len(parts) == 2:
+        p = _get_social(con, parts[1])
+        if method == "GET":
+            return 200, social_out(p)
+        if method == "DELETE":
+            need(role == "user", "only the owner can delete a social post", 403)
+            for m in json.loads(p["media"]):
+                defer(_unlink_media, m)
+            con.execute("DELETE FROM social_posts WHERE id=?", (p["id"],))
+            return 200, {"deleted": p["id"]}
+
+    if len(parts) == 3:
+        p = _get_social(con, parts[1])
+        action = parts[2]
+        if action == "approve" and method == "POST":
+            need(role == "user", "only the owner can approve posts; agents propose drafts", 403)
+            need(p["status"] == "draft", f"cannot approve a post in status '{p['status']}'")
+            _social_platform_check(p["platform"], p["text"])
+            con.execute("UPDATE social_posts SET status='approved', updated_at=? WHERE id=?", (now(), p["id"]))
+            return 200, social_out(_get_social(con, p["id"]))
+        if action == "schedule" and method == "POST":
+            need(p["status"] == "approved", f"only approved posts can be scheduled (status is '{p['status']}')")
+            b = h.body()   # read once: body() consumes the request stream
+            need(b.get("due") not in (None, ""), "due required (e.g. 'YYYY-MM-DD HH:MM', 'tomorrow 09:00', 'in 30m')")
+            due = parse_when(b["due"])
+            need(due > now() - 60, "that time is in the past")
+            con.execute("UPDATE social_posts SET status='scheduled', due_at=?, scheduled_by=?, updated_at=? WHERE id=?",
+                        (due, who, now(), p["id"]))
+            return 200, social_out(_get_social(con, p["id"]))
+        if action == "cancel" and method == "POST":
+            need(role == "user", "only the owner can cancel a post", 403)
+            need(p["status"] in ("draft", "approved", "scheduled"), f"cannot cancel a post in status '{p['status']}'")
+            con.execute("UPDATE social_posts SET status='cancelled', updated_at=? WHERE id=?", (now(), p["id"]))
+            return 200, social_out(_get_social(con, p["id"]))
+        if action == "result" and method == "POST":
+            need(p["status"] == "scheduled", f"only scheduled posts accept results (status is '{p['status']}')")
+            b = h.body()
+            status = b.get("status")
+            need(status in ("posted", "failed"), "status must be posted or failed")
+            con.execute("UPDATE social_posts SET status=?, posted_id=?, error=?, posted_at=?, updated_at=? WHERE id=?",
+                        (status, clean_str(b.get("posted_id", ""), "posted_id", 200),
+                         clean_str(b.get("error", ""), "error", 500), now(), now(), p["id"]))
+            return 200, social_out(_get_social(con, p["id"]))
+        if action == "media" and method == "POST":
+            need(p["status"] == "draft", "media can only be added to drafts")
+            n = len(json.loads(p["media"]))
+            _social_media_add(con, p["id"], n, h.body(SOCIAL_MAX_BODY))
+            return 200, social_out(_get_social(con, p["id"]))
+
+    if len(parts) == 4 and parts[2] == "media" and method == "GET":
+        p = _get_social(con, parts[1])
+        media = json.loads(p["media"])
+        n = int(parts[3])
+        need(0 <= n < len(media), "media index out of range", 404)
+        path = social_media_path(media[n])
+        need(path.is_file(), "media file missing", 404)
+        return 200, {"filename": media[n], "mime": MIME_BY_EXT.get(path.suffix.lower(), "application/octet-stream"),
+                     "data_b64": base64.b64encode(path.read_bytes()).decode()}
+
+    return None
+
+
+SOCIAL_MAX_BODY = SOCIAL_MAX_MEDIA + 64 * 1024   # media uploads ride inside one JSON body
+MIME_BY_EXT = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+               ".webp": "image/webp", ".gif": "image/gif"}
+
+
+def social_media_path(name):
+    return DB_PATH.parent / SOCIAL_MEDIA_DIR / os.path.basename(name)
+
+
+def _unlink_media(name):
+    try:
+        social_media_path(name).unlink()
+    except OSError:
+        pass
+
+
 # ---------- today ----------
 def today_view(con, role):
     t, td = now(), today_str()
@@ -1523,9 +1706,9 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def body(self):
+    def body(self, max_size=MAX_BODY):
         n = int(self.headers.get("Content-Length") or 0)
-        need(0 <= n <= MAX_BODY, "invalid body size", 413)
+        need(0 <= n <= max_size, "invalid body size", 413)
         if not n:
             return {}
         try:
@@ -1575,7 +1758,7 @@ class Handler(BaseHTTPRequestHandler):
                     # Otherwise a stale agent PATCH can undo a concurrent owner
                     # privacy change before SQLite starts its implicit write txn.
                     resource = path.split("/")[2:3]
-                    if method != "GET" and resource and resource[0] in ("todos", "notes", "reminders", "notifications", "notify"):
+                    if method != "GET" and resource and resource[0] in ("todos", "notes", "reminders", "notifications", "notify", "social"):
                         con.execute("BEGIN IMMEDIATE")
                     code, out = self.route(con, method, path, parse_qs(url.query), who, role)
                 flush_deferred(True)
@@ -1603,7 +1786,7 @@ class Handler(BaseHTTPRequestHandler):
         if parts == ["health"]:
             return 200, {"ok": True}
         if parts == ["me"]:
-            return 200, {"name": who, "role": role}
+            return 200, {"name": who, "role": role, "social_posting": bool(CONFIG["social_posting"])}
         if parts == ["projects"]:
             if method == "GET":
                 arch = 1 if q.get("archived") == ["1"] else 0
@@ -1646,7 +1829,8 @@ class Handler(BaseHTTPRequestHandler):
             need(c, "card not found", 404)
             return 201, gh_create_issue(con, dict(c), who)
         if parts == ["meta"]:
-            return 200, {"columns": COLUMNS, "block_owners": BLOCK_OWNERS, "statuses": STATUSES}
+            return 200, {"columns": COLUMNS, "block_owners": BLOCK_OWNERS, "statuses": STATUSES,
+                         "social_columns": SOCIAL_COLUMNS if CONFIG["social_posting"] else {}}
         if len(parts) == 2 and parts[0] == "cards":
             c = con.execute("SELECT * FROM cards WHERE id=?", (parts[1],)).fetchone()
             need(c, "card not found", 404)
@@ -1660,6 +1844,9 @@ class Handler(BaseHTTPRequestHandler):
                 recompute_progress(con, c["project"])
                 log(con, c["project"], who, "card", f"Removed card: {c['title']}")
                 return 200, {"deleted": c["id"]}
+        r = social_route(self, con, method, parts, q, who, role)
+        if r:
+            return r
         r = route_personal(self, con, method, parts, q, who, role)
         if r:
             return r
