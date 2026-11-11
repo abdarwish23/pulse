@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add an optional social-posts pipeline (`config.social_posting`, off by default, docs/social-posting.md): agents propose drafts, the owner approves on a new Social page, agents schedule approved posts, and an external publisher publishes on time and reports back. Owner-only approval is enforced server-side on the role model; media images (≤12 MB png/jpg/webp/gif) are allowlisted, size-capped, stored 0600 and deleted with their post; the schema migration runs as user_version 10 after the network/workspace migrations.
+
 - Add `pulse network wait REQUEST_ID` so agents can block until a sent request completes, fails, is cancelled, expires or is interrupted, with a timeout and exit codes instead of hand-written polling loops.
 - Add `effects.py`, a reversible-effect primitive (`Scope` with LIFO disposers, `JsonSnapshot` for change-checked config values), and make agent tokens hot-reloadable: `add-token` and token removal now take effect on the next request instead of needing a restart.
 - Make the whole configuration hot-reloadable: `CONFIG` is now a live view (`effects.LiveConfig`) over a change-checked snapshot, so Telegram, `public_url`, polling cadence, the notes mirror, memory backend, password, Cloudflare Access and proxy settings all apply on the next request. Only `host`, `port` and `timezone` still need a restart; a broken config file keeps the last good values.
