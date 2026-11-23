@@ -146,7 +146,7 @@ CLI and MCP commands, setup and limits, and the
 Pulse listens on `127.0.0.1` by default. To reach it from anywhere, put it behind something that handles HTTPS:
 
 - **Cloudflare Tunnel + Access** (recommended): free, no open ports, email sign-in. Pulse verifies the Access token itself.
-- **Tailscale**: private network access from your own devices.
+- **Tailscale**: private network access from your own devices — and from agents on managed cloud computers such as Meta Muse (see [docs/agents.md](docs/agents.md)).
 - **Caddy or nginx**: classic reverse proxy with automatic HTTPS. Pulse's password protects it.
 
 Then use your browser's **Add to Home Screen** to get an app icon. Step-by-step guides are in **[docs/deployment.md](docs/deployment.md)**.

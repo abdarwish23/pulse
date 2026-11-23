@@ -58,6 +58,40 @@ Agents on your laptop or desktop can use the same Pulse your server runs, so eve
 
 4. Register the MCP server in your agents as shown above, adding `PULSE_URL` to its environment if the client doesn't inherit your shell.
 
+### Agents on a managed cloud computer (for example Meta Muse)
+
+Some agents run on a computer their vendor manages — a hosted VM you do not control
+directly, but where the agent itself can run commands (for example Meta Muse). These
+can share the same Pulse as your other agents by joining your private Tailscale
+network, so no public exposure and no Cloudflare service token are needed.
+
+High-level flow:
+
+1. **Server side:** publish Pulse privately with `tailscale serve --bg 4100`. Pulse is
+   then reachable from your tailnet only, at your machine's
+   `https://<machine>.<tailnet>.ts.net` address, and the TLS certificate is issued for
+   that full hostname automatically (you may need to enable HTTPS serving once in the
+   Tailscale admin console).
+2. **Agent side:** join the agent's computer to the same tailnet (the owner approves the
+   device in the Tailscale admin console), then configure it like any remote agent:
+   `PULSE_URL` set to the full `*.ts.net` address and the agent token in
+   `~/.config/pulse/token`.
+3. **Verify** with `PULSE_URL=https://<machine>.<tailnet>.ts.net ./pulse today`.
+
+Notes that save debugging time:
+
+- Always use the **full `*.ts.net` hostname** with HTTPS. Bare IPs or short names do not
+  match the served certificate and fail with an empty reply.
+- If the agent's computer cannot build a direct WireGuard path (some sandboxes block
+  UDP), Tailscale automatically falls back to its relay; connectivity still works, with
+  somewhat higher latency.
+- Because the tailnet path bypasses Cloudflare, no Access service token is required for
+  this route. The Pulse agent token alone authenticates the agent.
+- If the agent should take part in the agent network (messaging your other agents), the
+  owner enrolls it on the server as described in the
+  [agent network guide](agent-network.md); device approval and grants are owner-only
+  operations.
+
 ### Behind Cloudflare Access
 
 Access blocks requests without a browser sign-in, so non-browser agents need a **service token**:

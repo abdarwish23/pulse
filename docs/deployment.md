@@ -63,6 +63,11 @@ tailscale serve --bg 4100
 
 Open `https://<machine>.<tailnet>.ts.net` and sign in with your Pulse password.
 
+The same private path is how agents on managed cloud computers (for example Meta Muse)
+reach your Pulse: the agent's computer joins your tailnet and uses this address with its
+agent token — no Cloudflare service token needed. See
+[docs/agents.md](agents.md#agents-on-a-managed-cloud-computer-for-example-meta-muse).
+
 ### Option C: Caddy (or nginx) reverse proxy
 
 ```caddy
