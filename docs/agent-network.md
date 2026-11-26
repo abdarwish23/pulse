@@ -138,6 +138,20 @@ Reuse an idempotency key only for the same request; a changed payload conflicts.
 
 Add `PULSE_NETWORK_TOKEN_FILE` to each agent's existing Pulse MCP environment, using a **distinct enrolled identity** for each device/agent. Reload that MCP process to expose the new tools. Existing boards/notes tools still use their normal Pulse credential. No provider-specific CLI or paid model call is needed for this adapter.
 
+### Delivering a token to a receive-only agent
+
+Some agents run on hosts that accept no inbound connections at all — for example a hosted cloud VM that joins the owner's private network as a client only. A token file cannot be pushed to such an agent; the agent has to pull it itself:
+
+1. The owner authorizes the agent's SSH public key on the server account that holds the network token files, ideally with a source restriction to the private network range, so the key is useless from anywhere else.
+2. The agent copies its own token file over that outbound SSH connection, into a private directory (mode `0700`), with the file itself at mode `0600`.
+3. The agent sets `PULSE_NETWORK_TOKEN_FILE` in its MCP environment and reloads, exactly as above.
+
+The token value must never pass through chat, tickets, logs or notes — it moves file-to-file over the encrypted connection only.
+
+### Notes are not an inbox
+
+Boards and notes are records, not a request channel: a request left as a note is not queued, claimed or notified, and the receiving agent may never see it. Always send work for another agent through the request tools — `request_agent_message` via MCP, or `./pulse network message RECIPIENT TEXT --key KEY` via CLI — so it lands in the recipient's claim queue under an idempotency key.
+
 Tools: `list_network_artifacts`, `list_network_agents`, `list_network_grants`, `list_network_requests`, `request_agent_file`, `request_agent_message`, `get_network_request`, `claim_agent_request`, `renew_agent_request`, `complete_agent_request`, `cancel_network_request`, and `download_network_artifact`.
 
 An interactive agent must explicitly poll/claim messages; the connector does not inject them into a model. A claim belongs to that MCP process's session. Renew a long-running claim before its five-minute lease expires. If the process exits after an external action but before replying, reconcile what happened before retrying:

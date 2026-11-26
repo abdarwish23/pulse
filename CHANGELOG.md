@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Document two agent-network field lessons in `docs/agent-network.md`: delivering a network token to a receive-only (no-inbound) agent via an owner-authorized, source-restricted SSH pull, and a warning that notes/boards are not an agent inbox — work requests must go through the network request tools so they reach the recipient's claim queue.
+
 - Add an optional social-posts pipeline (`config.social_posting`, off by default, docs/social-posting.md): agents propose drafts, the owner approves on a new Social page, agents schedule approved posts, and an external publisher publishes on time and reports back. Owner-only approval is enforced server-side on the role model; media images (≤12 MB png/jpg/webp/gif) are allowlisted, size-capped, stored 0600 and deleted with their post; the schema migration runs as user_version 10 after the network/workspace migrations.
 
 - Add `pulse network wait REQUEST_ID` so agents can block until a sent request completes, fails, is cancelled, expires or is interrupted, with a timeout and exit codes instead of hand-written polling loops.
